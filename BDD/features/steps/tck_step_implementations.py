@@ -57,7 +57,7 @@ def step_impl(context: Context, key: str, value: str):
 @when(u'sends "{command}" request')
 def step_impl(context, command: str):
     context.logger.info(f"Json request for {command} -> {str(context.json_array)}")
-    context.status = context.tm.receive_action_request(context.json_array)
+    context.status = context.tm.json_action_request(context.json_array)
     context.logger.info(f"Status Received: {context.status}")
 
 
