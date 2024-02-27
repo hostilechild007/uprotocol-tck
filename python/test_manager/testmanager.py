@@ -356,7 +356,7 @@ class SocketTestManager():
         """
     
         sdk_name: str = json_request["ue"][0]
-        command: str = json_request["action"][0].lower()
+        command: str = json_request["action"][0].lower().strip()
         
         name: str = json_request['uri.entity.name'][0]
         entity = UEntity(name=name)
@@ -428,7 +428,7 @@ class SocketTestManager():
             print("Sending", topic)
             translation: str = self.raw_protobuf_request(sdk_name, topic)
             return translation
-        elif command == "longdeserialize":
+        elif command == "longTAdeserialize":
             # Input String and TA should respond with UUri proto
             
             topic_str: str = LongUriSerializer().deserialize(topic)
