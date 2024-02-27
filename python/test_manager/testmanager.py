@@ -45,6 +45,7 @@ from uprotocol.proto.upayload_pb2 import UPayload, UPayloadFormat
 from uprotocol.proto.ustatus_pb2 import UCode
 from uprotocol.transport.builder.uattributesbuilder import UAttributesBuilder
 from uprotocol.rpc.rpcmapper import RpcMapper
+from uprotocol.uri.serializer.longuriserializer import LongUriSerializer
 
 from up_client_socket_python.transport_layer import TransportLayer
 from up_client_socket_python.utils.socket_message_processing_utils import receive_socket_data, convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, protobuf_to_base64, base64_to_protobuf_bytes, send_socket_data, is_close_socket_signal, is_serialized_protobuf, is_json_message, is_serialized_string
@@ -367,7 +368,7 @@ class SocketTestManager():
         
         topic: UUri = UUri(entity=entity, resource=resource)
         
-        if command == "send":
+        if command == "send" or command == "invokemethod":
             format: str = json_request['payload.format'][0]
             format = format.lower()
             if format == "cloudevent":
@@ -420,10 +421,19 @@ class SocketTestManager():
             return self.request(sdk_name, command, umsg)
         
         # INVOKE METHOD and Serialize and Deserialize
-        elif command == "invokemethod":
-            pass
-        elif command == "":
-            pass
+        elif command == "longTAserialize":
+            # Input UUri proto and  TA should respond with str
+            # topic = LongUriSerializer().deserialize(uri)
+            # topic:str = uri
+            print("Sending", topic)
+            translation: str = self.raw_protobuf_request(sdk_name, topic)
+            return translation
+        elif command == "longdeserialize":
+            # Input String and TA should respond with UUri proto
+            
+            topic_str: str = LongUriSerializer().deserialize(topic)
+            translation: UUri = self.raw_protobuf_request(sdk_name, topic_str)
+            return translation
         else:
             raise Exception("action value not handled!")   
 
