@@ -28,6 +28,8 @@ import socket
 import json
 from google.protobuf.any_pb2 import Any
 from typing import Dict
+from uprotocol.proto.uri_pb2 import UUri
+from uprotocol.rpc.rpcmapper import RpcMapper
 
 from uprotocol.cloudevent.serialize.base64protobufserializer import Base64ProtobufSerializer
 
@@ -63,3 +65,22 @@ def convert_json_to_jsonstring(j: Dict[str, str]) -> str:
 
 def convert_str_to_bytes(string: str) -> bytes:
     return str.encode(string) 
+
+def is_close_socket_signal(received_data: bytes) -> bool:
+        return received_data == b''
+    
+def is_serialized_protobuf(received_data: bytes, protobuf_class=UUri) -> bool:
+    try:
+        RpcMapper.unpack_payload(Any(value=received_data), protobuf_class)
+        return True
+    except:
+        return False
+
+def is_json_message(received_data: bytes) -> bool:
+    json_str: str = convert_bytes_to_string(received_data) 
+    
+    return "{" in json_str and "}" in json_str and ":" in json_str and (("\"action\"" in json_str and "\"message\"" in json_str) or ("\"SDK_name\"" in json_str))
+
+def is_serialized_string(received_data: bytes) -> bool:
+    s: str = received_data.decode()
+    return "/" in s

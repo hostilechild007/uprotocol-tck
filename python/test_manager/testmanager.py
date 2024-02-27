@@ -30,8 +30,9 @@ import threading
 import logging
 import re
 from collections import defaultdict
-from typing import Dict, List
+from typing import Dict, List, Union
 from google.protobuf.any_pb2 import Any
+from multimethod import multimethod
 
 from uprotocol.proto.uattributes_pb2 import UAttributes, UPriority, UMessageType
 from uprotocol.proto.uri_pb2 import UUri, UAuthority, UEntity, UResource
@@ -41,11 +42,12 @@ from uprotocol.transport.ulistener import UListener
 from uprotocol.cloudevent.cloudevents_pb2 import CloudEvent
 from uprotocol.proto.uuid_pb2 import UUID
 from uprotocol.proto.upayload_pb2 import UPayload, UPayloadFormat
+from uprotocol.proto.ustatus_pb2 import UCode
 from uprotocol.transport.builder.uattributesbuilder import UAttributesBuilder
 from uprotocol.rpc.rpcmapper import RpcMapper
 
 from up_client_socket_python.transport_layer import TransportLayer
-from up_client_socket_python.utils.socket_message_processing_utils import receive_socket_data, convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, protobuf_to_base64, base64_to_protobuf_bytes, send_socket_data
+from up_client_socket_python.utils.socket_message_processing_utils import receive_socket_data, convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, protobuf_to_base64, base64_to_protobuf_bytes, send_socket_data, is_close_socket_signal, is_serialized_protobuf, is_json_message, is_serialized_string
 
 from up_client_socket_python.utils.grammar_parsing_utils import get_priority, get_umessage_type
 
@@ -89,6 +91,9 @@ class SocketTestManager():
         self.sdk_to_received_ustatus_lock = threading.Lock()
 
         self.sdk_to_test_agent_socket_lock = threading.Lock()
+        
+        self.sdk_to_serializer_translation = defaultdict(lambda: None)
+        self.sdk_to_serializer_translation_lock = threading.Lock()
 
         self.sock_addr_to_sdk: Dict[tuple[str, int], str] = defaultdict(str) 
 
@@ -132,25 +137,46 @@ class SocketTestManager():
         recv_data: bytes = receive_socket_data(ta_socket)
         
         # if client socket closed connection, then close on server endpoint too
-        if recv_data == b'':
+        if is_close_socket_signal(recv_data):
             try: 
                 ta_addr: tuple[str, int] = ta_socket.getpeername()
                 sdk: str = self.sock_addr_to_sdk[ta_addr] 
                 
-                self.close_ta(sdk)
+                self.close_ta_socket(sdk)
                 
                 del self.sock_addr_to_sdk[ta_addr]
             except OSError as oserr:
                 print(oserr)
             return
 
-        json_str: str = convert_bytes_to_string(recv_data) 
+        if is_json_message(recv_data): 
+            json_str: str = convert_bytes_to_string(recv_data) 
 
-        # in case if json messages are concatenated, we are splitting the json data and handling it separately
-        data_within_json : List[str]= re.findall('{(.+?)}', json_str)  # {json, action: ..., messge: "...."}{json, action: status messge: "...."}
-        for recv_json_data in data_within_json:
-            json_msg: Dict[str, str] = convert_jsonstring_to_json("{" + recv_json_data + "}")
-            self.__handle_recv_json_message(json_msg, ta_socket)
+            # in case if json messages are concatenated, we are splitting the json data and handling it separately
+            data_within_json : List[str]= re.findall('{(.+?)}', json_str)  # {json, action: ..., messge: "...."}{json, action: status messge: "...."}
+            for recv_json_data in data_within_json:
+                json_msg: Dict[str, str] = convert_jsonstring_to_json("{" + recv_json_data + "}")
+                self.__handle_recv_json_message(json_msg, ta_socket)
+        
+        if is_serialized_protobuf(recv_data):
+            # should expect this after sending to TA the string version
+            
+            ta_addr: tuple[str, int] = ta_socket.getpeername()
+            sdk: str = self.sock_addr_to_sdk[ta_addr]
+            
+            uuri: UUri = RpcMapper.unpack_payload(Any(value=recv_data), UUri)
+            self.__save_serializer_translation(sdk, uuri)
+            
+        if is_serialized_string(recv_data):
+            ta_addr: tuple[str, int] = ta_socket.getpeername()
+            sdk: str = self.sock_addr_to_sdk[ta_addr]
+            
+            uuri_serialized: str = recv_data.decode()
+            self.__save_serializer_translation(sdk, uuri_serialized)
+    
+    def __handle_recv_protobuf(self, received_data: bytes):
+        pass
+    
 
     def __handle_recv_json_message(self, json_msg: Dict[str, str], ta_socket: socket.socket):
         """Runtime Handler for different type of incoming json messages
@@ -219,6 +245,21 @@ class SocketTestManager():
         
         return status
     
+    def __save_serializer_translation(self, sdk_name: str, translation: Union[str, Any]):
+        self.sdk_to_serializer_translation_lock.acquire()
+        self.sdk_to_serializer_translation[sdk_name] = translation
+        self.sdk_to_serializer_translation_lock.release()  
+    
+    def __pop_serializer_translation(self, sdk_name: str) -> Union[str, Any]:
+        while self.sdk_to_serializer_translation[sdk_name] is None:
+            continue
+            
+        self.sdk_to_serializer_translation_lock.acquire()
+        serializer_translation: Union[str, Any] = self.sdk_to_serializer_translation.pop(sdk_name)
+        self.sdk_to_serializer_translation_lock.release()
+        
+        return serializer_translation      
+    
     def has_sdk_connection(self, sdk_name: str) -> bool:
         if sdk_name == "self":
             return True
@@ -236,7 +277,8 @@ class SocketTestManager():
                 callback = key.data
                 callback(key.fileobj)
 
-    def __send_to_test_agent(self, test_agent_socket: socket.socket, command: str, umsg: UMessage):
+    @multimethod
+    def _send_to_test_agent(self, test_agent_socket: socket.socket, command: str, umsg: UMessage):
         """ Contains data preprocessing and sending UMessage steps to Test Agent
 
         Args:
@@ -254,6 +296,32 @@ class SocketTestManager():
         message: bytes = convert_str_to_bytes(json_message_str) 
 
         send_socket_data(test_agent_socket, message) 
+    
+    @multimethod
+    def _send_to_test_agent(self, test_agent_socket: socket.socket, protobuf: UUri):
+        """ Contains data preprocessing and sending UMessage steps to Test Agent
+
+        Args:
+            test_agent_socket (socket.socket): Test Agent Socket
+            command (str): message's action-type
+            umsg (UMessage): the raw protobuf message 
+        """
+        message: bytes = protobuf.SerializeToString()
+
+        send_socket_data(test_agent_socket, message)
+    
+    @multimethod
+    def _send_to_test_agent(self, test_agent_socket: socket.socket, protobuf_serialized: str):
+        """ Contains data preprocessing and sending UMessage steps to Test Agent
+
+        Args:
+            test_agent_socket (socket.socket): Test Agent Socket
+            command (str): message's action-type
+            umsg (UMessage): the raw protobuf message 
+        """
+        message: bytes = protobuf_serialized.encode()
+
+        send_socket_data(test_agent_socket, message)
         
     def request(self, sdk_ta_destination: str, command: str, message: UMessage) -> UStatus:
         """Sends different requests to a specific SDK Test Agent
@@ -270,12 +338,12 @@ class SocketTestManager():
 
         test_agent_socket: socket.socket = self.sdk_to_test_agent_socket[sdk_ta_destination]
 
-        self.__send_to_test_agent(test_agent_socket, command, message)
+        self._send_to_test_agent(test_agent_socket, command, message)
         
         status: UStatus = self.__pop_status(sdk_ta_destination) 
         return status
 
-    def receive_action_request(self, json_request: Dict) -> UStatus:
+    def json_action_request(self, json_request: Dict) -> UStatus:
         """Runtime command to send to Test Agent based on request json
 
         Args:
@@ -351,8 +419,31 @@ class SocketTestManager():
             # return self.register_listener_command(sdk_name, command, topic, listener)
             return self.request(sdk_name, command, umsg)
         
+        # INVOKE METHOD and Serialize and Deserialize
+        elif command == "invokemethod":
+            pass
+        elif command == "":
+            pass
         else:
             raise Exception("action value not handled!")   
+
+    def raw_protobuf_request(self, sdk_ta_destination: str, proto: Union[Any, str]) -> str :
+        """_summary_
+        
+        Args:
+            sdk_ta_destination (str): _description_
+            proto (Union[Any, str]): (ex: UUri proto / string)
+        """
+        
+        sdk_ta_destination = sdk_ta_destination.lower().strip()
+
+        test_agent_socket: socket.socket = self.sdk_to_test_agent_socket[sdk_ta_destination]
+
+        self._send_to_test_agent(test_agent_socket, proto)
+        
+        translation: str = self.__pop_serializer_translation(sdk_ta_destination)
+        
+        return translation
         
     def close(self):
         """Close the selector / test manager's server, 
@@ -360,7 +451,7 @@ class SocketTestManager():
         """
         self.selector.close()
     
-    def close_ta(self, sdk_name: str):
+    def close_ta_socket(self, sdk_name: str):
         print(f"Closing {sdk_name} connection")
         
         # if havent deleted and closed socket client already...

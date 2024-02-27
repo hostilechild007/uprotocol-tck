@@ -38,12 +38,14 @@ from uprotocol.proto.ustatus_pb2 import UStatus
 from uprotocol.proto.upayload_pb2 import UPayload
 from uprotocol.rpc.rpcmapper import RpcMapper
 from uprotocol.proto.ustatus_pb2 import UCode
+from uprotocol.uri.serializer.longuriserializer import LongUriSerializer
 
 from up_client_socket_python.transport_layer import TransportLayer
 from up_client_socket_python.utils.socket_message_processing_utils import send_socket_data, receive_socket_data, convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, protobuf_to_base64, base64_to_protobuf_bytes
 from up_client_socket_python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND
 from uprotocol.transport.ulistener import UListener
-    
+
+from up_client_socket_python.utils.socket_message_processing_utils import is_json_message, is_serialized_protobuf, is_serialized_string
 
 class SocketTestAgent:
     def __init__(self, test_clientsocket: socket.socket, utransport: TransportLayer, listener: UListener) -> None:
@@ -79,32 +81,57 @@ class SocketTestAgent:
                 self.clientsocket.close()
                 return
 
-            json_str: str = convert_bytes_to_string(recv_data) 
-            json_msg: Dict[str, str] = convert_jsonstring_to_json(json_str) 
-
-            action: str = json_msg["action"]
-            umsg_base64: str = json_msg["message"]
-            protobuf_serialized_data: bytes = base64_to_protobuf_bytes(umsg_base64)  
+            if is_json_message(recv_data): 
+                self._handle_json_message(recv_data, listener)
             
-            received_proto: UMessage = RpcMapper.unpack_payload(Any(value=protobuf_serialized_data), UMessage)
-            print('action:', action)
-            print("received_proto:", received_proto)
-
-            status: UStatus = None
-            if action == SEND_COMMAND:
-                status = self.utransport.send(received_proto.attributes.source, received_proto.payload, received_proto.attributes)
-            elif action == REGISTER_LISTENER_COMMAND:
-                status = self.utransport.register_listener(received_proto.attributes.source, listener)
-            elif action == UNREGISTER_LISTENER_COMMAND:
-                status = self.utransport.unregister_listener(received_proto.attributes.source, listener)
-            elif action == INVOKE_METHOD_COMMAND:
-                future_umsg: Future = self.utransport.invoke_method(received_proto.attributes.source, received_proto.payload, received_proto.attributes)
-                print("future_umsg")
-                print(future_umsg)
+            if is_serialized_protobuf(recv_data):
+                print("is_serialized_protobuf")
+                uuri: UUri = RpcMapper.unpack_payload(Any(value=recv_data), UUri)
                 
-                status = UStatus(code=UCode.OK, message="OK") 
-            self.send(status)
+                uuri_serialized: str = LongUriSerializer().serialize(uuri)
+                uuri_serialized_b: bytes = uuri_serialized.encode()
+                
+                # respond w/ serialized string of given proto
+                print('sending uuri_serialized', uuri_serialized_b)
+                self.clientsocket.send(uuri_serialized_b)
             
+            if is_serialized_string(recv_data):
+                print("is_serialized_string")
+                uuri_serialized: str = recv_data.decode()
+
+                uuri: UUri = LongUriSerializer().deserialize(uuri_serialized)
+                uuri_b: bytes = uuri.SerializeToString()
+                print("sending uuri_b", uuri_b)
+
+                self.clientsocket.send(uuri_b)
+                
+            
+    def _handle_json_message(self, recv_data: bytes, listener: UListener):
+        json_str: str = convert_bytes_to_string(recv_data) 
+        json_msg: Dict[str, str] = convert_jsonstring_to_json(json_str) 
+
+        action: str = json_msg["action"]
+        umsg_base64: str = json_msg["message"]
+        protobuf_serialized_data: bytes = base64_to_protobuf_bytes(umsg_base64)  
+        
+        received_proto: UMessage = RpcMapper.unpack_payload(Any(value=protobuf_serialized_data), UMessage)
+        print('action:', action)
+        print("received_proto:", received_proto)
+
+        status: UStatus = None
+        if action == SEND_COMMAND:
+            status = self.utransport.send(received_proto.attributes.source, received_proto.payload, received_proto.attributes)
+        elif action == REGISTER_LISTENER_COMMAND:
+            status = self.utransport.register_listener(received_proto.attributes.source, listener)
+        elif action == UNREGISTER_LISTENER_COMMAND:
+            status = self.utransport.unregister_listener(received_proto.attributes.source, listener)
+        elif action == INVOKE_METHOD_COMMAND:
+            future_umsg: Future = self.utransport.invoke_method(received_proto.attributes.source, received_proto.payload, received_proto.attributes)
+            print("future_umsg")
+            print(future_umsg)
+            
+            status = UStatus(code=UCode.OK, message="OK") 
+        self.send(status)
 
     @dispatch(UUri, UPayload, UAttributes)
     def send(self, topic: UUri, payload: UPayload, attributes: UAttributes):

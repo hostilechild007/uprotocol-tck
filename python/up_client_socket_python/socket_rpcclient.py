@@ -110,16 +110,17 @@ class SocketRPCClient(RpcClient):
             
             response_reqid: UUID = response_umsg.attributes.reqid
             
+            print("comparing reqids")
             print(request_id_b)
             print(response_reqid.SerializeToString())
 
             if request_id_b == response_reqid.SerializeToString():
                 # Got response
-                logger.info('Got response: \n' + str(response_umsg))
+                logger.info(self.__class__.__name__ +'Got response: \n' + str(response_umsg))
                 return response_umsg
             else:
                 # If response wasn't meant for current client
-                logger.info("Response wasn't meant for current client: \n" + str(response_umsg))
+                logger.info(self.__class__.__name__ + " Response wasn't meant for current client: \n" + str(response_umsg))
                 continue
             
 
@@ -136,4 +137,5 @@ class SocketRPCClient(RpcClient):
             # Mark each future with its groups
             response: Future = executor.submit(self.__send_to_service_socket, topic, payload, attributes)
 
+            print(response.result())
             return response
