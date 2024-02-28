@@ -34,7 +34,12 @@ from uprotocol.proto.ustatus_pb2 import UStatus
 from uprotocol.transport.ulistener import UListener
 
 from up_client_socket_python.socket_utransport import SocketUTransport
-from org_eclipse_uprotocol_someip.someip_utransport import uSOMEIP
+
+try:
+    from org_eclipse_uprotocol_someip.someip_utransport import uSOMEIP
+except:
+    pass
+
 
 class TransportLayer:
     _instance = None
