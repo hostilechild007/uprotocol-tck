@@ -34,8 +34,7 @@ from uprotocol.proto.ustatus_pb2 import UStatus
 from uprotocol.transport.ulistener import UListener
 
 from up_client_socket_python.socket_utransport import SocketUTransport
-
-
+from org_eclipse_uprotocol_someip.someip_utransport import uSOMEIP
 
 class TransportLayer:
     _instance = None
@@ -81,6 +80,10 @@ class TransportLayer:
             self.__SOCKET_IP = ip
             self._update_instance()
 
+    def set_someip_config(self):
+        self.__utransport = "SOMEIP"
+        self._update_instance()
+
     def _update_instance(self):
         '''
         if self.__utransport == "ZENOH" and self.__ZENOH_IP is not None and self.__ZENOH_PORT is not None:
@@ -90,6 +93,9 @@ class TransportLayer:
         '''
         if self.__utransport == "SOCKET":
             self.__instance = SocketUTransport(self.__SOCKET_IP, self.__SOCKET_PORT)
+
+        if self.__utransport == "SOMEIP":
+            self.__instance = uSOMEIP()
 
     def invoke_method(self, topic: UUri, payload: UPayload, attributes: UAttributes) -> Future:
         return self.__instance.invoke_method(topic, payload, attributes)

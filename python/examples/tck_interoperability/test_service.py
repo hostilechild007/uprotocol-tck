@@ -24,8 +24,8 @@
 #
 # -------------------------------------------------------------------------
 
-import time 
-from uprotocol.proto.uri_pb2 import UUri, UAuthority 
+import time
+from uprotocol.proto.uri_pb2 import UUri, UAuthority
 from uprotocol.proto.uattributes_pb2 import UAttributes, UMessageType
 from uprotocol.proto.upayload_pb2 import UPayload
 from uprotocol.proto.umessage_pb2 import UMessage
@@ -41,18 +41,20 @@ import socket
 from multipledispatch import dispatch
 
 
-
 def build_cloud_event():
     return CloudEvent(spec_version="1.0", source="https://example.com", id="HARTLEY IS THE BEST")
+
 
 def build_upayload():
     any_obj = Any()
     any_obj.Pack(build_cloud_event())
     return UPayload(format=UPayloadFormat.UPAYLOAD_FORMAT_PROTOBUF, value=any_obj.SerializeToString())
 
+
 @dispatch()
 def build_uattributes():
     return UAttributesBuilder.publish(UPriority.UPRIORITY_CS4).build()
+
 
 @dispatch(UUID)
 def build_uattributes(req: UUID):
@@ -61,7 +63,7 @@ def build_uattributes(req: UUID):
 
 
 PORT = 44444
-IP = "127.0.0.1" 
+IP = "127.0.0.1"
 ADDR = (IP, PORT)
 
 if __name__ == "__main__":
@@ -71,7 +73,7 @@ if __name__ == "__main__":
     payload: UPayload = build_upayload()
     attributes: UAttributes = build_uattributes()
     attributes.source.CopyFrom(topic)
-    umsg_dummy2 = UMessage(attributes=attributes, payload=payload) 
+    umsg_dummy2 = UMessage(attributes=attributes, payload=payload)
 
     req: UUID = UUID(msb=1234, lsb=4321)
     req_dummy1: UUID = UUID(msb=4321, lsb=1234)
@@ -81,49 +83,45 @@ if __name__ == "__main__":
     attributes_dummy2: UAttributes = build_uattributes(req_dummy2)
     attributes_dummy1.source.CopyFrom(topic)
     attributes_dummy2.source.CopyFrom(topic)
-    umsg_dummy3 = UMessage(payload=payload, attributes=attributes_dummy1) 
-    umsg_dummy4 = UMessage(payload=payload, attributes=attributes_dummy2) 
+    umsg_dummy3 = UMessage(payload=payload, attributes=attributes_dummy1)
+    umsg_dummy4 = UMessage(payload=payload, attributes=attributes_dummy2)
 
     # connects to dispatcher
-    cli_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  
-    cli_socket.connect(ADDR)  
+    cli_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    cli_socket.connect(ADDR)
 
-    
     recv_data: bytes = cli_socket.recv(32767)
 
     # create dumby response
     print("sending dum1")
-    cli_socket.send(umsg_dummy2.SerializeToString()) 
+    cli_socket.send(umsg_dummy2.SerializeToString())
 
     time.sleep(3)
 
     # create dumby response
     print("sending dum2")
-    cli_socket.send(umsg_dummy2.SerializeToString()) 
+    cli_socket.send(umsg_dummy2.SerializeToString())
 
     time.sleep(3)
 
     # create dumby response
     print("sending dum3")
-    cli_socket.send(umsg_dummy3.SerializeToString()) 
+    cli_socket.send(umsg_dummy3.SerializeToString())
 
     time.sleep(3)
 
     # create dumby response
     print("sending dum4")
-    cli_socket.send(umsg_dummy4.SerializeToString()) 
+    cli_socket.send(umsg_dummy4.SerializeToString())
     time.sleep(3)
 
-    #create correct response
+    # create correct response
     print("sending real")
     recv_msg = UMessage()
     recv_msg.ParseFromString(recv_data)
 
     attributes_real: UAttributes = build_uattributes(recv_msg.attributes.id)
     attributes_real.source.CopyFrom(topic)
-    umsg_real = UMessage(payload=payload, attributes=attributes_real) 
+    umsg_real = UMessage(payload=payload, attributes=attributes_real)
 
-    cli_socket.send(umsg_real.SerializeToString()) 
-
-
-
+    cli_socket.send(umsg_real.SerializeToString())
