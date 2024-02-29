@@ -13,23 +13,17 @@ class UEntityBuilder:
         return self
     
     def add_id(self, id : int):
-        if id < 0:
-            raise ValueError("input >= 0")
         self.id = id
 
         return self
     
     def add_version_major(self, version_major: int):
-        if version_major < 0:
-            raise ValueError("input >= 0")
 
         self.version_major = version_major
 
         return self
     
     def add_version_minor(self, version_minor : int):
-        if version_minor < 0:
-            raise ValueError("input >= 0")
 
         self.version_minor = version_minor 
 

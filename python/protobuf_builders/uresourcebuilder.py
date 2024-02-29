@@ -23,8 +23,6 @@ class UResourceBuilder:
         return self
     
     def add_id(self, id: int):
-        if id < 0:
-            raise ValueError("input >= 0")
         
         self.id = id
         return self
