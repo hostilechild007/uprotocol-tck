@@ -39,13 +39,17 @@ from uprotocol.proto.upayload_pb2 import UPayload
 from uprotocol.rpc.rpcmapper import RpcMapper
 from uprotocol.proto.ustatus_pb2 import UCode
 from uprotocol.uri.serializer.longuriserializer import LongUriSerializer
+from uprotocol.uri.serializer.microuriserializer import MicroUriSerializer
 
 from up_client_socket_python.transport_layer import TransportLayer
 from up_client_socket_python.utils.socket_message_processing_utils import send_socket_data, receive_socket_data, convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, protobuf_to_base64, base64_to_protobuf_bytes
-from up_client_socket_python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND
+from up_client_socket_python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND, COMMANDS, SERIALIZERS, LONG_URI_SERIALIZE, LONG_URI_DESERIALIZE, MICRO_URI_SERIALIZE, MICRO_URI_DESERIALIZE, LONG_URI_SERIALIZE_RESPONSE, LONG_URI_DESERIALIZE_RESPONSE, MICRO_URI_SERIALIZE_RESPONSE, MICRO_URI_DESERIALIZE_RESPONSE
 from uprotocol.transport.ulistener import UListener
 
 from up_client_socket_python.utils.socket_message_processing_utils import is_json_message, is_serialized_protobuf, is_serialized_string
+
+from serializer.serializerselector import JsonMessageSerializerSelector
+from serializer.json_message_serializer import JsonMessageSerializer
 
 class SocketTestAgent:
     def __init__(self, test_clientsocket: socket.socket, utransport: TransportLayer, listener: UListener) -> None:
@@ -60,6 +64,7 @@ class SocketTestAgent:
         self.utransport: TransportLayer = utransport
 
         self.possible_received_protobufs = [UMessage()]
+        self.json_msg_serializer_selector: JsonMessageSerializerSelector = JsonMessageSerializerSelector()
 
         # Client Socket connection to Test Manager
         self.clientsocket: socket.socket = test_clientsocket
@@ -83,7 +88,7 @@ class SocketTestAgent:
 
             if is_json_message(recv_data): 
                 self._handle_json_message(recv_data, listener)
-            
+            '''
             if is_serialized_protobuf(recv_data):
                 print("is_serialized_protobuf")
                 uuri: UUri = RpcMapper.unpack_payload(Any(value=recv_data), UUri)
@@ -104,12 +109,30 @@ class SocketTestAgent:
                 print("sending uuri_b", uuri_b)
 
                 self.clientsocket.send(uuri_b)
+            '''
                 
             
     def _handle_json_message(self, recv_data: bytes, listener: UListener):
         json_str: str = convert_bytes_to_string(recv_data) 
         json_msg: Dict[str, str] = convert_jsonstring_to_json(json_str) 
 
+        if json_msg["action"] in COMMANDS:
+            self._handle_command_json(json_msg, listener)
+        elif json_msg["action"] in SERIALIZERS:
+            self._handle_serialize_json(json_msg)
+    
+    def _handle_serialize_json(self, json_msg: Dict[str, str]):
+        action: str = json_msg["action"]
+        
+        json_msg_serializer: JsonMessageSerializer = self.json_msg_serializer_selector.select(action)
+        response_json: Dict[str, str] = json_msg_serializer.execute(json_msg)
+        
+        print("response_json")
+        print(response_json)
+
+        self.send_to_TM(response_json)
+        
+    def _handle_command_json(self, json_msg: Dict[str, str], listener: UListener):
         action: str = json_msg["action"]
         umsg_base64: str = json_msg["message"]
         protobuf_serialized_data: bytes = base64_to_protobuf_bytes(umsg_base64)  

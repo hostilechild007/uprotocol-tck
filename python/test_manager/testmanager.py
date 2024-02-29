@@ -46,11 +46,13 @@ from uprotocol.proto.ustatus_pb2 import UCode
 from uprotocol.transport.builder.uattributesbuilder import UAttributesBuilder
 from uprotocol.rpc.rpcmapper import RpcMapper
 from uprotocol.uri.serializer.longuriserializer import LongUriSerializer
+from uprotocol.uri.serializer.microuriserializer import MicroUriSerializer
+from uprotocol.uri.serializer.uriserializer import UriSerializer
 
 from up_client_socket_python.transport_layer import TransportLayer
 from up_client_socket_python.utils.socket_message_processing_utils import receive_socket_data, convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, protobuf_to_base64, base64_to_protobuf_bytes, send_socket_data, is_close_socket_signal, is_serialized_protobuf, is_json_message, is_serialized_string
-
 from up_client_socket_python.utils.grammar_parsing_utils import get_priority, get_umessage_type
+from up_client_socket_python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND, LONG_URI_SERIALIZE, LONG_URI_DESERIALIZE, MICRO_URI_SERIALIZE, MICRO_URI_DESERIALIZE,  LONG_URI_SERIALIZE_RESPONSE, LONG_URI_DESERIALIZE_RESPONSE, MICRO_URI_SERIALIZE_RESPONSE, MICRO_URI_DESERIALIZE_RESPONSE
 
 logging.basicConfig(format='%(asctime)s %(message)s')
 # Create logger
@@ -158,7 +160,12 @@ class SocketTestManager():
             for recv_json_data in data_within_json:
                 json_msg: Dict[str, str] = convert_jsonstring_to_json("{" + recv_json_data + "}")
                 self.__handle_recv_json_message(json_msg, ta_socket)
+            
+            return
         
+        
+        ## NOTE NEED todo some checking if sent is the same as the received but translated back -> THEN save 
+        # Map: (sdk, expected response bytes/str/proto)
         if is_serialized_protobuf(recv_data):
             # should expect this after sending to TA the string version
             
@@ -167,6 +174,7 @@ class SocketTestManager():
             
             uuri: UUri = RpcMapper.unpack_payload(Any(value=recv_data), UUri)
             self.__save_serializer_translation(sdk, uuri)
+            return
             
         if is_serialized_string(recv_data):
             ta_addr: tuple[str, int] = ta_socket.getpeername()
@@ -174,6 +182,15 @@ class SocketTestManager():
             
             uuri_serialized: str = recv_data.decode()
             self.__save_serializer_translation(sdk, uuri_serialized)
+            return
+        
+        '''if is_micro_uri_serialized(recv_data):
+            print("is_micro_uri_serialized")
+            ta_addr: tuple[str, int] = ta_socket.getpeername()
+            sdk: str = self.sock_addr_to_sdk[ta_addr]
+            
+            self.__save_serializer_translation(sdk, recv_data)
+            return'''
     
     def __handle_recv_protobuf(self, received_data: bytes):
         pass
@@ -226,11 +243,33 @@ class SocketTestManager():
             print(onreceive_umsg)
             print("-----------------------------------------------------------------------------------------------------")
 
-
+        elif "action" in json_msg and json_msg["action"] == LONG_URI_SERIALIZE_RESPONSE:
+            # "message" is a string
+            uuri_serialized: str = json_msg["message"]
+            self.__save_serializer_translation(sdk, uuri_serialized)
+            
+        elif "action" in json_msg and (json_msg["action"] == LONG_URI_DESERIALIZE_RESPONSE or json_msg["action"] == MICRO_URI_DESERIALIZE_RESPONSE):
+            uuri_base64: str = json_msg["message"]
+            protobuf_serialized_data: bytes = base64_to_protobuf_bytes(uuri_base64)  
+            uuri: UUri = RpcMapper.unpack_payload(Any(value=protobuf_serialized_data), UUri)
+            self.__save_serializer_translation(sdk, uuri)
+            
+        elif "action" in json_msg and json_msg["action"] == MICRO_URI_SERIALIZE_RESPONSE:
+            uuri_serialized_s: str = json_msg["message"]
+            uuri_serialized: bytes = uuri_serialized_s.encode()
+            self.__save_serializer_translation(sdk, uuri_serialized)
+            
+        elif "action" in json_msg and json_msg["action"] == MICRO_URI_DESERIALIZE_RESPONSE:
+            # uuri_base64: str = json_msg["message"]
+            # protobuf_serialized_data: bytes = base64_to_protobuf_bytes(uuri_base64) 
+            # uuri: UUri = RpcMapper.unpack_payload(Any(value=protobuf_serialized_data), UUri)
+            # self.__save_serializer_translation(sdk, uuri)
+            pass
         else:
             raise Exception("new client connection didn't initally send sdk name")
         
     def __save_status(self, sdk_name: str, status: UStatus):
+        ## NOTE: NEED SEMAPHORE for each sdk so dont overwrite a status
         self.sdk_to_received_ustatus_lock.acquire()
         self.sdk_to_received_ustatus[sdk_name] = status 
         self.sdk_to_received_ustatus_lock.release()
@@ -279,6 +318,15 @@ class SocketTestManager():
                 callback(key.fileobj)
 
     @multimethod
+    def _send_to_test_agent(self, test_agent_socket: socket.socket, json_message: Dict[str, str]):
+
+        json_message_str: str = convert_json_to_jsonstring(json_message) 
+        
+        message: bytes = convert_str_to_bytes(json_message_str) 
+
+        send_socket_data(test_agent_socket, message)
+        
+    @multimethod
     def _send_to_test_agent(self, test_agent_socket: socket.socket, command: str, umsg: UMessage):
         """ Contains data preprocessing and sending UMessage steps to Test Agent
 
@@ -292,37 +340,37 @@ class SocketTestManager():
             "message": protobuf_to_base64(umsg) 
         }
 
-        json_message_str: str = convert_json_to_jsonstring(json_message) 
-
-        message: bytes = convert_str_to_bytes(json_message_str) 
-
-        send_socket_data(test_agent_socket, message) 
+        self._send_to_test_agent(test_agent_socket, json_message)
     
     @multimethod
-    def _send_to_test_agent(self, test_agent_socket: socket.socket, protobuf: UUri):
-        """ Contains data preprocessing and sending UMessage steps to Test Agent
-
-        Args:
-            test_agent_socket (socket.socket): Test Agent Socket
-            command (str): message's action-type
-            umsg (UMessage): the raw protobuf message 
+    def _send_to_test_agent(self, test_agent_socket: socket.socket, command: str, uri: UUri):
+        """ For uri serializer (serialize/deserialize) mostly
         """
-        message: bytes = protobuf.SerializeToString()
-
-        send_socket_data(test_agent_socket, message)
+        json_message = {
+            "action": command,
+            "message": protobuf_to_base64(uri) 
+        }
+        self._send_to_test_agent(test_agent_socket, json_message)
     
     @multimethod
-    def _send_to_test_agent(self, test_agent_socket: socket.socket, protobuf_serialized: str):
-        """ Contains data preprocessing and sending UMessage steps to Test Agent
-
-        Args:
-            test_agent_socket (socket.socket): Test Agent Socket
-            command (str): message's action-type
-            umsg (UMessage): the raw protobuf message 
+    def _send_to_test_agent(self, test_agent_socket: socket.socket, command: str, protobuf_serialized: str):
+        """ For uri serializer (serialize/deserialize) mostly
         """
-        message: bytes = protobuf_serialized.encode()
-
-        send_socket_data(test_agent_socket, message)
+        json_message = {
+            "action": command,
+            "message": protobuf_serialized
+        }
+        self._send_to_test_agent(test_agent_socket, json_message)
+    
+    @multimethod
+    def _send_to_test_agent(self, test_agent_socket: socket.socket, command: str, protobuf_serialized: bytearray):
+        """ For uri serializer (serialize/deserialize) mostly
+        """
+        json_message = {
+            "action": command,
+            "message": protobuf_serialized.decode()
+        }
+        self._send_to_test_agent(test_agent_socket, json_message)
         
     def request(self, sdk_ta_destination: str, command: str, message: UMessage) -> UStatus:
         """Sends different requests to a specific SDK Test Agent
@@ -368,7 +416,7 @@ class SocketTestManager():
         
         topic: UUri = UUri(entity=entity, resource=resource)
         
-        if command == "send" or command == "invokemethod":
+        if command in [SEND_COMMAND, INVOKE_METHOD_COMMAND]:
             format: str = json_request['payload.format'][0]
             format = format.lower()
             if format == "cloudevent":
@@ -415,30 +463,37 @@ class SocketTestManager():
             umsg: UMessage = UMessage(attributes=attributes, payload=upayload)
             return self.request(sdk_name, command, umsg)
 
-        elif command == "registerlistener":
+        elif command in [REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND]:
             umsg: UMessage = UMessage(attributes=UAttributes(source=topic))
             # return self.register_listener_command(sdk_name, command, topic, listener)
             return self.request(sdk_name, command, umsg)
         
-        # INVOKE METHOD and Serialize and Deserialize
-        elif command == "longTAserialize":
+        # Serialize and Deserialize
+        elif command == LONG_URI_SERIALIZE:
             # Input UUri proto and  TA should respond with str
-            # topic = LongUriSerializer().deserialize(uri)
-            # topic:str = uri
-            print("Sending", topic)
-            translation: str = self.raw_protobuf_request(sdk_name, topic)
+            translation: str = self.uriserializer_request(sdk_name, command, topic)
             return translation
-        elif command == "longTAdeserialize":
+        elif command == LONG_URI_DESERIALIZE:
             # Input String and TA should respond with UUri proto
             
             topic_str: str = LongUriSerializer().deserialize(topic)
-            translation: UUri = self.raw_protobuf_request(sdk_name, topic_str)
+            translation: UUri = self.uriserializer_request(sdk_name, command, topic_str)
+            return translation
+        elif command == MICRO_URI_SERIALIZE:
+            # in: UUri -> out: bytes
+            translation: bytes = self.uriserializer_request(sdk_name, command, topic)
+            return translation
+        elif command == MICRO_URI_DESERIALIZE:
+            # in: bytes -> out: UUri
+            topic_b: bytes = MicroUriSerializer().deserialize(topic)
+            print("topic_b:", topic_b)
+            translation: UUri = self.uriserializer_request(sdk_name, command, topic_b)
             return translation
         else:
             raise Exception("action value not handled!")   
 
-    def raw_protobuf_request(self, sdk_ta_destination: str, proto: Union[Any, str]) -> str :
-        """_summary_
+    def uriserializer_request(self, sdk_ta_destination: str, command: str, proto: Union[Any, str, bytearray]) -> Union[Any, str, bytes] :
+        """Sends raw data without any JSON wrapped around or any pre-formats
         
         Args:
             sdk_ta_destination (str): _description_
@@ -448,8 +503,9 @@ class SocketTestManager():
         sdk_ta_destination = sdk_ta_destination.lower().strip()
 
         test_agent_socket: socket.socket = self.sdk_to_test_agent_socket[sdk_ta_destination]
-
-        self._send_to_test_agent(test_agent_socket, proto)
+        print("proto:", proto)
+        print(type(proto))
+        self._send_to_test_agent(test_agent_socket, command, proto)
         
         translation: str = self.__pop_serializer_translation(sdk_ta_destination)
         

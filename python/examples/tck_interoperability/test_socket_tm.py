@@ -49,6 +49,7 @@ import logging
 import re
 
 from up_client_socket_python.utils.socket_message_processing_utils import protobuf_to_base64
+from uprotocol.uri.serializer.microuriserializer import MicroUriSerializer
 
 
 logging.basicConfig(format='%(asctime)s %(message)s')
@@ -385,7 +386,7 @@ print("----------------------------------------")
 # print(protobuf_to_base64(payload))
 
 # handle_progress_commands(get_progress_commands(), manager)    
-
+'''
 while True:
     sdk: str = input("Enter SDK Language[java/python]: ")
     sdk = sdk.strip()
@@ -415,17 +416,28 @@ while True:
     print("received status:", status)
     print("---------------")
     time.sleep(1)
-
-
 '''
+
+
 # test serializer/deserializer
 while True:
     sdk: str = input("Enter SDK Language[java/python]: ")
     sdk = sdk.strip()
+    
+    command: str = input("Enter command: ")
+    command = command.strip()
 
-    # topic = LongUriSerializer().deserialize(uri)
-    topic:str = uri
-    print("Sending", topic)
-    translation: UUri = manager.raw_protobuf_request(sdk, topic)
+    topic: UUri = LongUriSerializer().deserialize(uri)
+    if command == "longuriserialize":
+        translation: str = manager.uriserializer_request(sdk, command, topic)
+    elif command == "longurideserialize":
+        translation: UUri = manager.uriserializer_request(sdk, command, uri)
+    elif command == "microuriserialize":
+        translation: bytes = manager.uriserializer_request(sdk, command, topic)
+    elif command == "microurideserialize":
+        topic_b: bytes = MicroUriSerializer().serialize(topic)
+        translation: UUri = manager.uriserializer_request(sdk, command, topic_b)
+    else:
+        continue
     print("received translation:\n", translation)
-    '''
+    
