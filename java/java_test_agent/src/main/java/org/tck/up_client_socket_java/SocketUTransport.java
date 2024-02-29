@@ -24,59 +24,85 @@
 
 package org.tck.up_client_socket_java;
 
+import org.eclipse.uprotocol.transport.UListener;
+import org.eclipse.uprotocol.transport.UTransport;
+import org.eclipse.uprotocol.v1.*;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
-import org.eclipse.uprotocol.rpc.CallOptions;
-import org.eclipse.uprotocol.rpc.RpcClient;
-import org.eclipse.uprotocol.transport.UListener;
-import org.eclipse.uprotocol.transport.UTransport;
-import org.eclipse.uprotocol.v1.*;
-import org.tck.testagent.TestAgent;
-
-public class SocketUTransport implements UTransport, RpcClient {
+public class SocketUTransport implements UTransport {
     private static final Logger logger = Logger.getLogger(SocketUTransport.class.getName());
     private final Socket socket;
     SocketRPCClient socketRPCClient;
     private final Map<UUri, UListener> topicToListener = new ConcurrentHashMap<>();
 
+    Map<byte[], CompletableFuture> reqidToFuture = new HashMap<>();
+
     public SocketUTransport(String hostIp, int port) throws IOException {
         socket = new Socket(hostIp, port);
-        Thread thread = new Thread(this::listen);
+        Thread thread = new Thread(() -> {
+            try {
+                listen();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
         thread.start();
     }
 
-    private void listen() {
+    private void listen() throws IOException {
         try {
             while (true) {
                 InputStream inputStream = socket.getInputStream();
                 byte[] buffer = new byte[32767];
                 int readSize = inputStream.read(buffer);
-                logger.info("Message length: "+readSize);
+                logger.info("Message length: " + readSize);
 
-                UMessage umsg = UMessage.parseFrom(Arrays.copyOfRange(buffer, 0, readSize) );
+                UMessage umsg = UMessage.parseFrom(Arrays.copyOfRange(buffer, 0, readSize));
                 logger.info("Received uMessage: " + umsg);
 
                 UUri topic = umsg.getAttributes().getSource();
-                if (topicToListener.containsKey(topic)) {
-                    topicToListener.get(topic).onReceive(umsg);
-                } else {
-                    logger.info("Topic not found in Listener Map, discarding...");
+                UAttributes attributes = umsg.getAttributes();
+
+                if (attributes.getType() == UMessageType.UMESSAGE_TYPE_PUBLISH || attributes.getType() == UMessageType.UMESSAGE_TYPE_REQUEST) {
+                    this.handlePublishMessage(topic, umsg);
+                } else if (attributes.getType() == UMessageType.UMESSAGE_TYPE_RESPONSE) {
+                    this.handleResponseMessage(umsg);
                 }
             }
-        } catch (IOException e) {
-            try {
-                socket.close();
-            } catch (IOException ioException) {
-                ioException.printStackTrace();
-            }
+        } catch (SocketException e) {
+            socket.close();
+        }
+    }
+
+    private void handlePublishMessage(UUri topic, UMessage umsg) {
+        byte[] topic_b = topic.toByteArray();
+        if (this.topicToListener.containsKey(topic_b)) {
+            logger.info(this.getClass().getSimpleName() + " Handle Topic");
+            UListener listener = this.topicToListener.get(topic_b);
+            listener.onReceive(umsg);
+        } else {
+            Logger.getLogger(getClass().getName()).info(this.getClass().getSimpleName() + " Topic not found in Listener Map, discarding...");
+        }
+    }
+
+    private void handleResponseMessage(UMessage umsg) {
+        UUID requestId = umsg.getAttributes().getReqid();
+        byte[] requestIdBytes = requestId.toString().getBytes();
+        if (requestIdBytes != null && this.reqidToFuture.containsKey(requestIdBytes)) {
+            CompletableFuture<UMessage> responseFuture = this.reqidToFuture.get(requestIdBytes);
+            responseFuture.complete(umsg);
+            this.reqidToFuture.remove(requestIdBytes);
         }
     }
 
@@ -96,7 +122,6 @@ public class SocketUTransport implements UTransport, RpcClient {
                     .setMessage("INTERNAL ERROR: IOException sending UMessage")
                     .build();
         }
-
         return UStatus.newBuilder()
                 .setCode(UCode.OK)
                 .setMessage("OK")
@@ -121,10 +146,11 @@ public class SocketUTransport implements UTransport, RpcClient {
                 .build();
     }
 
-
-    @Override
-    public CompletionStage<UMessage> invokeMethod(UUri methodURI, UPayload payload, CallOptions callOptions) {
-        CompletionStage<UMessage> response = socketRPCClient.invokeMethod(methodURI, payload, callOptions);
+    public CompletableFuture<UMessage> invokeMethod(UMessage umsg) {
+        UUID requestId = umsg.getAttributes().getReqid();
+        CompletableFuture<UMessage> response = new CompletableFuture<>();
+        this.reqidToFuture.put(requestId.toByteArray(), response);
+        this.send(umsg);
         return response;
     }
 }
