@@ -538,11 +538,11 @@ class SocketTestManager():
             return translation
         elif command == MICRO_URI_SERIALIZE:
             # in: UUri -> out: bytes
-            translation: bytes = self.uriserializer_request(sdk_name, command, topic)
+            translation: bytes = self.uriserializer_request(sdk_name, command, source)
             return translation
         elif command == MICRO_URI_DESERIALIZE:
             # in: bytes -> out: UUri
-            topic_b: bytes = MicroUriSerializer().deserialize(topic)
+            topic_b: bytes = MicroUriSerializer().deserialize(source)
             print("topic_b:", topic_b)
             translation: UUri = self.uriserializer_request(sdk_name, command, topic_b)
             return translation
