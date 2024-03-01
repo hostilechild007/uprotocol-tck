@@ -40,6 +40,7 @@ try:
 except:
     pass
 
+from logger.logger import logger
 
 class TransportLayer:
     _instance = None
@@ -66,7 +67,7 @@ class TransportLayer:
 
     def set_transport(self, transport: str):
         if self.__utransport != transport:
-            print('set transport, previous is', self.__utransport, 'current is', transport)
+            logger.info(f'set transport, previous is {self.__utransport} current is {transport}')
             self.__utransport = transport
             self._update_instance()
 

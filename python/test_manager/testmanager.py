@@ -60,11 +60,8 @@ from protobuf_builders.uuribuilder import UUriBuilder
 from up_client_socket_python.utils.grammar_parsing_utils import get_priority, get_umessage_type
 from up_client_socket_python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND, LONG_URI_SERIALIZE, LONG_URI_DESERIALIZE, MICRO_URI_SERIALIZE, MICRO_URI_DESERIALIZE,  LONG_URI_SERIALIZE_RESPONSE, LONG_URI_DESERIALIZE_RESPONSE, MICRO_URI_SERIALIZE_RESPONSE, MICRO_URI_DESERIALIZE_RESPONSE
 
-logging.basicConfig(format='%(asctime)s %(message)s')
-# Create logger
-logger = logging.getLogger('simple_example')
-logger.setLevel(logging.DEBUG)
 
+from logger.logger import logger
 
 class SocketTestManager():
     """
@@ -127,7 +124,7 @@ class SocketTestManager():
             server (socket.socket): Test Manager server
         """
         ta_socket, addr = server.accept() 
-        print('accepted', ta_socket, 'from', addr)
+        logger.info(f'accepted conn. {addr}')
         
         # Never wait for the operation to complete. 
         # So when call send(), it will put as much data in the buffer as possible and return.
@@ -155,7 +152,7 @@ class SocketTestManager():
                 
                 del self.sock_addr_to_sdk[ta_addr]
             except OSError as oserr:
-                print(oserr)
+                logger.error(oserr)
             return
 
         if is_json_message(recv_data): 
@@ -223,7 +220,7 @@ class SocketTestManager():
             self.sdk_to_test_agent_socket[sdk] = ta_socket
             self.sdk_to_test_agent_socket_lock.release()
             
-            print("Initialized new client socket!",sdk, ta_addr )
+            logger.info(f"Initialized new client socket! {sdk}")
             return
 
         ta_addr: tuple[str, int] = ta_socket.getpeername()
@@ -245,9 +242,9 @@ class SocketTestManager():
 
             self.received_umessage = onreceive_umsg
 
-            print("---------------------------------OnReceive response from Test Agent!---------------------------------")
-            print(onreceive_umsg)
-            print("-----------------------------------------------------------------------------------------------------")
+            logger.info("---------------------OnReceive response from Test Agent!----------------------------")
+            logger.info(onreceive_umsg)
+            logger.info("------------------------------------------------------------------------------------")
 
         elif "action" in json_msg and json_msg["action"] == LONG_URI_SERIALIZE_RESPONSE:
             # "message" is a string
@@ -426,6 +423,7 @@ class SocketTestManager():
         uri_authority_name: str = self.get_or_null(json_request, "uri.authority.name")
 
         if self.get_or_null(json_request, "uri.authority.ip") is not None:
+            # .encode() isnt working
             uri_authority_ip: bytes = self.get_or_null(json_request, "uri.authority.ip").encode()
         else:
             uri_authority_ip: bytes = None
@@ -575,7 +573,7 @@ class SocketTestManager():
         self.selector.close()
     
     def close_ta_socket(self, sdk_name: str):
-        print(f"Closing {sdk_name} connection")
+        logger.info(f"Closing {sdk_name} connection")
         
         # if havent deleted and closed socket client already...
         if sdk_name in self.sdk_to_test_agent_socket:

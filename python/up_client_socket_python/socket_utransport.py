@@ -25,9 +25,8 @@
 # -------------------------------------------------------------------------
 
 
-from typing import Dict
+from typing import Dict, List
 import socket
-import logging
 from google.protobuf.any_pb2 import Any
 from concurrent.futures import Future
 
@@ -41,13 +40,10 @@ from uprotocol.transport.ulistener import UListener
 from uprotocol.transport.utransport import UTransport
 from uprotocol.proto.umessage_pb2 import UMessage
 from uprotocol.rpc.rpcmapper import RpcMapper
-from uprotocol.rpc.rpcclient import RpcClient
 
 from up_client_socket_python.socket_rpcclient import SocketRPCClient
 
-logging.basicConfig(format='%(asctime)s %(message)s')
-logger = logging.getLogger('simple_example')
-logger.setLevel(logging.INFO)
+from logger.logger import logger
 
 
 class SocketUTransport(UTransport):
@@ -64,7 +60,7 @@ class SocketUTransport(UTransport):
         # self.rpcclient: RpcClient = SocketRPCClient(None, None, server_conn=self.socket)
         self.reqid_to_future: Dict[bytes, Future] = {}
 
-        self.topic_to_listener: Dict[bytes, UListener] = {} 
+        self.topic_to_listener: Dict[bytes, List[UListener]] = {} 
         thread = Thread(target = self.__listen)  
         thread.start()
 
@@ -125,8 +121,8 @@ class SocketUTransport(UTransport):
         if topic_b in self.topic_to_listener:
             logger.info(f"{self.__class__.__name__} Handle Topic")
 
-            listener: UListener = self.topic_to_listener[topic_b]
-            listener.on_receive(topic, payload, attributes)
+            for listener in self.topic_to_listener[topic_b]:
+                listener.on_receive(topic, payload, attributes)
         else:
             logger.info(f"{self.__class__.__name__} Topic not found in Listener Map, discarding...")
 
@@ -147,7 +143,7 @@ class SocketUTransport(UTransport):
         umsg_serialized: bytes = umsg.SerializeToString()
 
         try:
-            num_bytes_sent: int = self.socket.send(umsg_serialized)
+            num_bytes_sent: int = self.socket.sendall(umsg_serialized)
             if num_bytes_sent == 0:
                 return UStatus(code=UCode.INTERNAL, message="INTERNAL ERROR: Socket Connection Broken")
             logger.info(f"{self.__class__.__name__} uMessage Sent")
@@ -166,7 +162,10 @@ class SocketUTransport(UTransport):
         """
 
         topic_serialized: bytes = topic.SerializeToString()
-        self.topic_to_listener[topic_serialized] = listener
+        if topic_serialized in self.topic_to_listener:
+            self.topic_to_listener[topic_serialized].append(listener)
+        else:
+            self.topic_to_listener[topic_serialized] = [listener]
 
         return UStatus(code=UCode.OK, message="OK") 
     
@@ -175,9 +174,15 @@ class SocketUTransport(UTransport):
 
     def unregister_listener(self, topic: UUri, listener: UListener) -> UStatus:
         
-        del self.topic_to_listener[topic.SerializeToString()]
+        topic_serialized: bytes = topic.SerializeToString()
 
-        return UStatus(code=UCode.OK, message="OK")  
+        if topic_serialized in self.topic_to_listener:
+            if len(self.topic_to_listener[topic_serialized]) > 1:
+                self.topic_to_listener[topic_serialized].remove(listener)
+            else:
+                del self.topic_to_listener[topic_serialized]
+
+        return UStatus(code=UCode.OK, message="OK")
     
 
     def invoke_method(self, topic: UUri, payload: UPayload, attributes: UAttributes) -> Future:

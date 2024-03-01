@@ -51,6 +51,8 @@ from up_client_socket_python.utils.socket_message_processing_utils import is_jso
 from serializer.serializerselector import JsonMessageSerializerSelector
 from serializer.json_message_serializer import JsonMessageSerializer
 
+from logger.logger import logger
+
 class SocketTestAgent:
     def __init__(self, test_clientsocket: socket.socket, utransport: TransportLayer, listener: UListener) -> None:
         """
@@ -82,7 +84,7 @@ class SocketTestAgent:
             recv_data: bytes = receive_socket_data(self.clientsocket) 
             
             if recv_data == b"":
-                print("Closing TA Client Socket")
+                logger.info("Closing TA Client Socket")
                 self.clientsocket.close()
                 return
 
@@ -127,8 +129,8 @@ class SocketTestAgent:
         json_msg_serializer: JsonMessageSerializer = self.json_msg_serializer_selector.select(action)
         response_json: Dict[str, str] = json_msg_serializer.execute(json_msg)
         
-        print("response_json")
-        print(response_json)
+        logger.info("response_json:")
+        logger.info(response_json)
 
         self.send_to_TM(response_json)
         
@@ -138,8 +140,10 @@ class SocketTestAgent:
         protobuf_serialized_data: bytes = base64_to_protobuf_bytes(umsg_base64)  
         
         received_proto: UMessage = RpcMapper.unpack_payload(Any(value=protobuf_serialized_data), UMessage)
-        print('action:', action)
-        print("received_proto:", received_proto)
+        logger.info('action: ' + action)
+        logger.info("received_proto: ")
+        logger.info(received_proto)
+
 
         status: UStatus = None
         if action == SEND_COMMAND:
@@ -150,11 +154,10 @@ class SocketTestAgent:
             status = self.utransport.unregister_listener(received_proto.attributes.source, listener)
         elif action == INVOKE_METHOD_COMMAND:
             future_umsg: Future = self.utransport.invoke_method(received_proto.attributes.source, received_proto.payload, received_proto.attributes)
-            print("future_umsg")
-            print(future_umsg)
             
             status = UStatus(code=UCode.OK, message="OK") 
         self.send(status)
+            
 
     @dispatch(UUri, UPayload, UAttributes)
     def send(self, topic: UUri, payload: UPayload, attributes: UAttributes):
@@ -183,7 +186,6 @@ class SocketTestAgent:
         Sends UStatus to Test Manager 
         @param status: the reply after receiving a message
         """
-        # print(f"UStatus: {status}")
 
         json_message = {
             "action": "uStatus",
@@ -203,7 +205,7 @@ class SocketTestAgent:
         message: bytes = convert_str_to_bytes(json_message_str)
         
         send_socket_data(self.clientsocket, message)
-        print(f"Sent {message}")
+        logger.info(f"Sent to TM {message}")
 
     def close_connection(self):
         self.clientsocket.close()
