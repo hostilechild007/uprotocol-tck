@@ -51,6 +51,12 @@ from uprotocol.uri.serializer.uriserializer import UriSerializer
 
 from up_client_socket_python.transport_layer import TransportLayer
 from up_client_socket_python.utils.socket_message_processing_utils import receive_socket_data, convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, protobuf_to_base64, base64_to_protobuf_bytes, send_socket_data, is_close_socket_signal, is_serialized_protobuf, is_json_message, is_serialized_string
+from protobuf_builders.uauthoritybuilder import UAuthorityBuilder
+from protobuf_builders.uentitybuilder import UEntityBuilder
+from protobuf_builders.upayloadbuilder import UPayloadBuilder
+from protobuf_builders.uresourcebuilder import UResourceBuilder
+from protobuf_builders.uuribuilder import UUriBuilder
+
 from up_client_socket_python.utils.grammar_parsing_utils import get_priority, get_umessage_type
 from up_client_socket_python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND, LONG_URI_SERIALIZE, LONG_URI_DESERIALIZE, MICRO_URI_SERIALIZE, MICRO_URI_DESERIALIZE,  LONG_URI_SERIALIZE_RESPONSE, LONG_URI_DESERIALIZE_RESPONSE, MICRO_URI_SERIALIZE_RESPONSE, MICRO_URI_DESERIALIZE_RESPONSE
 
@@ -392,6 +398,10 @@ class SocketTestManager():
         status: UStatus = self.__pop_status(sdk_ta_destination) 
         return status
 
+
+    def get_or_null(self, json_request: Dict, json_key: str):
+        return json_request.get(json_key, [None])[0]
+
     def json_action_request(self, json_request: Dict) -> UStatus:
         """Runtime command to send to Test Agent based on request json
 
@@ -403,18 +413,60 @@ class SocketTestManager():
             UStatus: the status after doing a command
         """
     
+
+        sdk_name: str = self.get_or_null(json_request, "ue")
+        command: str = self.get_or_null(json_request, "action")
+
+        uri_authority_name: str = self.get_or_null(json_request, "uri.authority.name")
+
+        if self.get_or_null(json_request, "uri.authority.ip") is not None and \
+            self.get_or_null(json_request, "uri.authority.id") is not None:
+            raise ValueError("Cannot set both uri.authority.ip and uri.authority.id")
+        
+        uri_authority_name: str = self.get_or_null(json_request, "uri.authority.name")
+
+        if self.get_or_null(json_request, "uri.authority.ip") is not None:
+            uri_authority_ip: bytes = self.get_or_null(json_request, "uri.authority.ip").encode()
+        else:
+            uri_authority_ip: bytes = None
+
+        if self.get_or_null(json_request, "uri.authority.id") is not None:
+            uri_authority_id: bytes = self.get_or_null(json_request, "uri.authority.id").encode()
+        else:
+            uri_authority_id: bytes = None
+
+        uri_entity_name: str = self.get_or_null(json_request, "uri.entity.name")
+
+        if self.get_or_null(json_request, "uri.entity.id") is not None:
+            uri_entity_id: int = int(self.get_or_null(json_request, "uri.entity.id"))
+        else:
+            uri_entity_id: int = None
+
+        if self.get_or_null(json_request, "uri.entity.version_major") is not None:
+            uri_entity_version_major: int = int(self.get_or_null(json_request, "uri.entity.version_major"))
+        else:
+            uri_entity_version_major: int = None
+
+        if self.get_or_null(json_request, "uri.entity.version_minor") is not None:
+            uri_entity_version_minor: int = int(self.get_or_null(json_request, "uri.entity.version_minor"))
+        else:
+            uri_entity_version_minor: int = None
+
+        uri_resource_name: str = self.get_or_null(json_request, "uri.resource.name")
+        uri_resource_instance: str = self.get_or_null(json_request, "uri.resource.instance")
+        uri_resource_message: str = self.get_or_null(json_request, "uri.resource.message")
+        if self.get_or_null(json_request, "uri.resource.id") is not None:
+            uri_resource_id: int = int(self.get_or_null(json_request, "uri.resource.id"))
+        else:
+            uri_resource_id: int = None
         sdk_name: str = json_request["ue"][0]
         command: str = json_request["action"][0].lower().strip()
         
-        name: str = json_request['uri.entity.name'][0]
-        entity = UEntity(name=name)
+        entity: UEntity = UEntityBuilder().add_id(uri_entity_id).add_name(uri_entity_name).add_version_major(uri_entity_version_major).add_version_minor(uri_entity_version_minor).build()
+        resource: UResource = UResourceBuilder().add_id(uri_resource_id).add_instance(uri_resource_instance).add_message(uri_resource_message).add_name(uri_resource_name).build()
+        authority: UAuthority = UAuthorityBuilder().add_id(uri_authority_id).add_ip(uri_authority_ip).add_name(uri_authority_name).build()
         
-        name: str = json_request['uri.resource.name'][0]
-        instance: str = json_request['uri.resource.instance'][0]
-        message: str = json_request['uri.resource.message'][0]
-        resource: UResource = UResource(name=name, instance=instance, message=message)
-        
-        topic: UUri = UUri(entity=entity, resource=resource)
+        source = UUriBuilder().add_authority(authority).add_entity(entity).add_resource(resource).build()
         
         if command in [SEND_COMMAND, INVOKE_METHOD_COMMAND]:
             format: str = json_request['payload.format'][0]
@@ -438,45 +490,50 @@ class SocketTestManager():
             upayload: UPayload = UPayload(format=UPayloadFormat.UPAYLOAD_FORMAT_PROTOBUF, value=proto)
 
 
-            priority: str = json_request['attributes.priority'][0]
+            priority: str = self.get_or_null(json_request, "attributes.priority")
             priority: UPriority = get_priority(priority)
 
-            umsg_type: str = json_request['attributes.type'][0]
+            umsg_type: str = self.get_or_null(json_request, "attributes.type")
             umsg_type: UMessageType = get_umessage_type(umsg_type)
 
             if 'attributes.id' in json_request:
-                id_num: int = int(json_request['attributes.id'][0])
+                id_num: int = int(self.get_or_null(json_request, 'attributes.id'))
                 id: UUID = UUID(msb=id_num)
 
             sink: UUri = UUri()
             if "attributes.sink" in json_request:
-                sink: str = json_request['attributes.sink'][0]
+                sink: str = self.get_or_null(json_request)
                 sink_bytes: bytes = sink.encode()
                 #sink.ParseFromString(sink_bytes)
 
             attributes: UAttributes = UAttributesBuilder(id, umsg_type, priority).withSink(sink).build()
             # return self.send_command(sdk_name, command, topic, upayload, attributes)
 
-            if topic is not None:
-                attributes.source.CopyFrom(topic)
+            if source is not None:
+                attributes.source.CopyFrom(source)
 
             umsg: UMessage = UMessage(attributes=attributes, payload=upayload)
             return self.request(sdk_name, command, umsg)
 
         elif command in [REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND]:
-            umsg: UMessage = UMessage(attributes=UAttributes(source=topic))
+            umsg: UMessage = UMessage(attributes=UAttributes(source=source))
             # return self.register_listener_command(sdk_name, command, topic, listener)
             return self.request(sdk_name, command, umsg)
         
         # Serialize and Deserialize
         elif command == LONG_URI_SERIALIZE:
             # Input UUri proto and  TA should respond with str
-            translation: str = self.uriserializer_request(sdk_name, command, topic)
+            # topic = LongUriSerializer().deserialize(uri)
+            # topic:str = uri
+            print("Sending", source)
+            # translation: str = self.raw_protobuf_request(sdk_name, source)
+            translation: str = self.uriserializer_request(sdk_name, command, source)
+
             return translation
         elif command == LONG_URI_DESERIALIZE:
             # Input String and TA should respond with UUri proto
             
-            topic_str: str = LongUriSerializer().deserialize(topic)
+            topic_str: str = LongUriSerializer().deserialize(source)
             translation: UUri = self.uriserializer_request(sdk_name, command, topic_str)
             return translation
         elif command == MICRO_URI_SERIALIZE:

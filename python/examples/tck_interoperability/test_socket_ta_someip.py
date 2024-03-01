@@ -51,12 +51,10 @@ from up_client_socket_python.utils.socket_message_processing_utils import conver
 
 
 class SocketUListener(UListener):
-    def __init__(self, test_manager_conn: socket.socket) -> None:
+    def __init__(self) -> None:
         """
-        @param test_agent_conn: Connection to Test Agent
         """
-        # Connection to Test Manager
-        self.test_manager_conn: socket.socket = test_manager_conn
+        pass
 
     def on_receive(self, topic: UUri, payload: UPayload, attributes: UAttributes) -> UStatus:
         """
@@ -69,24 +67,6 @@ class SocketUListener(UListener):
         """
         # global on_receive_items
         print("Listener onreceived")
-        print(f"{payload}")
-
-        if topic is not None:
-            attributes.source.CopyFrom(topic)
-
-        umsg: UMessage = UMessage(attributes=attributes, payload=payload)
-
-        json_message = {
-            "action": "onReceive",
-            "message": protobuf_to_base64(umsg)
-        }
-
-        json_message_str: str = convert_json_to_jsonstring(json_message)
-
-        message: bytes = convert_str_to_bytes(json_message_str)
-
-        print("Sending onReceive to Test Manager Directly!")
-        send_socket_data(self.test_manager_conn, message)
 
         return UStatus(code=UCode.OK, message="all good")
 
@@ -113,14 +93,14 @@ if __name__ == "__main__":
     dispatcher_PORT: int = 44444
 
     transport = TransportLayer()
-    transport.set_socket_config(dispatcher_IP, dispatcher_PORT)
+    transport.set_someip_config()
 
     test_manager_IP: str = "127.0.0.5"
     test_manager_PORT: int = 12345
     test_agent_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     test_agent_socket.connect((test_manager_IP, test_manager_PORT))
 
-    listener: UListener = SocketUListener(test_agent_socket)
+    listener: UListener = SocketUListener()
 
     agent = SocketTestAgent(test_agent_socket, transport, listener)
 
@@ -128,4 +108,4 @@ if __name__ == "__main__":
     payload: UPayload = build_upayload()
     attributes: UAttributes = build_uattributes()
 
-    agent.send_to_TM({'SDK_name': "python"})
+    agent.send_to_TM({'SDK_name': "someip"})
