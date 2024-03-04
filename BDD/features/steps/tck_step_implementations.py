@@ -48,6 +48,16 @@ def step_impl(context, sdk_name: str, command: str):
 @given(u'sets "{key}" to "{value}"')
 @when(u'sets "{key}" to "{value}"')
 def step_impl(context: Context, key: str, value: str):
+    '''
+    # NOTE: can set like ...
+    # And sets "uri.resource.message" to "Door"
+    to 
+    And sets "resource.message" to primitive "Door"  -> sets "resource".message = Door
+    And sets "uri.resource" to protobuf "resource"  -> uri.resource = resource
+    
+    Can i prep data w/ data type already when putting value in dict?
+    
+    '''
     context.logger.info("Json data: Key is " + str(key) + " value is " + str(value))
     if key not in context.json_array:
         context.json_array[key] = [value]

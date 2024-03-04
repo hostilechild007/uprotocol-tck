@@ -32,7 +32,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -46,7 +45,7 @@ public class SocketUTransport implements UTransport {
     private final Socket socket;
     SocketRPCClient socketRPCClient;
     private final Map<UUri, ArrayList<UListener>> topicToListener = new ConcurrentHashMap<>();
-    Map<byte[], CompletableFuture> reqidToFuture = new HashMap<>();
+    Map<UUID, CompletableFuture<UMessage>> reqidToFuture = new HashMap<>();
 
     public SocketUTransport(String hostIp, int port) throws IOException {
         socket = new Socket(hostIp, port);
@@ -70,7 +69,8 @@ public class SocketUTransport implements UTransport {
 
                 UMessage umsg = UMessage.parseFrom(Arrays.copyOfRange(buffer, 0, readSize));
                 logger.info("Received uMessage: " + umsg);
-
+                
+                // if registered to topic, then listeners should receive this incoming UMessage 
                 UUri topic = umsg.getAttributes().getSource();
                 UAttributes attributes = umsg.getAttributes();
 
@@ -80,29 +80,33 @@ public class SocketUTransport implements UTransport {
                     this.handleResponseMessage(umsg);
                 }
             }
-        } catch (SocketException e) {
-            socket.close();
+        } catch (IOException e) {
+            try {
+                socket.close();
+            } catch (IOException ioException) {
+                ioException.printStackTrace();
+            }
         }
     }
 
     private void handlePublishMessage(UUri topic, UMessage umsg) {
-        byte[] topic_b = topic.toByteArray();
-        if (this.topicToListener.containsKey(topic_b)) {
-            logger.info(this.getClass().getSimpleName() + " Handle Topic");
-            UListener listener = this.topicToListener.get(topic_b);
-            listener.onReceive(umsg);
+
+        if (topicToListener.containsKey(topic)) {
+            for (UListener listener : topicToListener.get(topic)) {
+                Logger.getLogger(" Handle Topic");
+                listener.onReceive(umsg);
+            }
         } else {
-            Logger.getLogger(getClass().getName()).info(this.getClass().getSimpleName() + " Topic not found in Listener Map, discarding...");
+            Logger.getLogger(" Topic not found in Listener Map, discarding...");
         }
     }
 
     private void handleResponseMessage(UMessage umsg) {
         UUID requestId = umsg.getAttributes().getReqid();
-        byte[] requestIdBytes = requestId.toString().getBytes();
-        if (requestIdBytes != null && this.reqidToFuture.containsKey(requestIdBytes)) {
-            CompletableFuture<UMessage> responseFuture = this.reqidToFuture.get(requestIdBytes);
+        if (this.reqidToFuture.containsKey(requestId)) {
+            CompletableFuture<UMessage> responseFuture = this.reqidToFuture.get(requestId);
             responseFuture.complete(umsg);
-            this.reqidToFuture.remove(requestIdBytes);
+            this.reqidToFuture.remove(requestId);
         }
     }
 
@@ -163,7 +167,7 @@ public class SocketUTransport implements UTransport {
     public CompletableFuture<UMessage> invokeMethod(UMessage umsg) {
         UUID requestId = umsg.getAttributes().getReqid();
         CompletableFuture<UMessage> response = new CompletableFuture<>();
-        this.reqidToFuture.put(requestId.toByteArray(), response);
+        this.reqidToFuture.put(requestId, response);
         this.send(umsg);
         return response;
     }

@@ -31,6 +31,8 @@ Scenario Outline: To test the registerlistener and send apis
       And sets "uri.resource.name" to "door"
       And sets "uri.resource.instance" to "front_left"
       And sets "uri.resource.message" to "Door"
+
+
       And sends "registerlistener" request
       And the status for "registerlistener" request is "OK"
 

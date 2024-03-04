@@ -43,7 +43,7 @@ def create_command(filepath_from_root_repo: str) -> List[str]:
     command: List[str] = []
     
     if sys.platform == "win32":
-        # command.append("start")
+        command.append("start")
         pass
     elif sys.platform == "linux" or sys.platform == "linux2":
         command.append('gnome-terminal')

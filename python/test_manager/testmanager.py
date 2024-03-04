@@ -409,6 +409,8 @@ class SocketTestManager():
         Returns:
             UStatus: the status after doing a command
         """
+        
+        ## NOTE: in tck impl, need to assert UStatus's code, NOT MESSAGE
     
 
         sdk_name: str = self.get_or_null(json_request, "ue")
