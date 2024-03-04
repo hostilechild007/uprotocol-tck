@@ -87,8 +87,7 @@ public class TestAgent {
                     logger.info("jsonString from TM: " + jsonStr);
                     if (isValidJSON(jsonStr)) {
                         handle_json_message(jsonStr, listener);
-                    }
-                    else if (isSerializedProtobuf((jsonStr.getBytes()))) {
+                    } else if (isSerializedProtobuf((jsonStr.getBytes()))) {
                         System.out.println("is_serialized_protobuf");
                         UUri topic = UUri.parseFrom(jsonStr.getBytes());
                         String uuriSerialized = LongUriSerializer.instance().serialize(topic);
@@ -145,7 +144,8 @@ public class TestAgent {
         this.send(status);
     }
 
-    /*public void send(UUri topic, UPayload payload, UAttributes attributes) {
+    /*
+    public void send(UUri topic, UPayload payload, UAttributes attributes) {
     if (topic != null) {
     //attributes.getSource()
     }
