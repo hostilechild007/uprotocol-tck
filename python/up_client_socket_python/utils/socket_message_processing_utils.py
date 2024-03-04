@@ -32,19 +32,20 @@ from uprotocol.proto.uri_pb2 import UUri
 from uprotocol.rpc.rpcmapper import RpcMapper
 
 from uprotocol.cloudevent.serialize.base64protobufserializer import Base64ProtobufSerializer
+from uprotocol.uri.serializer.microuriserializer import MicroUriSerializer
+
+from logger.logger import logger
 
 BYTES_MSG_LENGTH: int = 32767
 
 def send_socket_data(s: socket.socket , msg: bytes):
-    # filler =  b' ' * (BYTES_MSG_LENGTH - len(msg))
-    # s.send(msg + filler)
-    s.send(msg)
+    s.sendall(msg)
 
 def receive_socket_data(s: socket.socket) -> bytes:
     try:
         return s.recv(BYTES_MSG_LENGTH)
     except OSError as oserr:  # in case if socket is closed
-        print(oserr)
+        logger.info(oserr)
         return b''
 
 def protobuf_to_base64(obj: Any) -> str:
@@ -67,7 +68,7 @@ def convert_str_to_bytes(string: str) -> bytes:
     return str.encode(string) 
 
 def is_close_socket_signal(received_data: bytes) -> bool:
-        return received_data == b''
+    return received_data == b''
     
 def is_serialized_protobuf(received_data: bytes, protobuf_class=UUri) -> bool:
     try:
@@ -84,3 +85,11 @@ def is_json_message(received_data: bytes) -> bool:
 def is_serialized_string(received_data: bytes) -> bool:
     s: str = received_data.decode()
     return "/" in s
+
+def create_json_message(action: str, message: str) -> Dict[str, str]:
+    json: Dict[str, str] = {
+        "action": action,
+        "message": message
+    }
+    
+    return json

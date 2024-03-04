@@ -33,6 +33,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -44,8 +45,7 @@ public class SocketUTransport implements UTransport {
     private static final Logger logger = Logger.getLogger(SocketUTransport.class.getName());
     private final Socket socket;
     SocketRPCClient socketRPCClient;
-    private final Map<UUri, UListener> topicToListener = new ConcurrentHashMap<>();
-
+    private final Map<UUri, ArrayList<UListener>> topicToListener = new ConcurrentHashMap<>();
     Map<byte[], CompletableFuture> reqidToFuture = new HashMap<>();
 
     public SocketUTransport(String hostIp, int port) throws IOException {
@@ -130,7 +130,12 @@ public class SocketUTransport implements UTransport {
 
     @Override
     public UStatus registerListener(UUri topic, UListener listener) {
-        topicToListener.put(topic, listener);
+    	ArrayList<UListener> new_array_list = new ArrayList<UListener>();
+    	if (topicToListener.containsKey(topic)) {
+    		new_array_list = topicToListener.get(topic);
+    	}
+		new_array_list.add(listener);
+		topicToListener.put(topic,  new_array_list);
         return UStatus.newBuilder()
                 .setCode(UCode.OK)
                 .setMessage("OK")
@@ -139,7 +144,16 @@ public class SocketUTransport implements UTransport {
 
     @Override
     public UStatus unregisterListener(UUri topic, UListener listener) {
-        topicToListener.remove(topic);
+    	ArrayList<UListener> new_array_list = new ArrayList<UListener>();
+    	if (topicToListener.containsKey(topic)) {
+    		new_array_list = topicToListener.get(topic);
+    		if (new_array_list.size() > 1) {
+    			new_array_list.remove(listener);
+    			topicToListener.put(topic, new_array_list);
+    		} else {
+    			topicToListener.remove(topic);
+    		}
+    	}
         return UStatus.newBuilder()
                 .setCode(UCode.OK)
                 .setMessage("OK")
