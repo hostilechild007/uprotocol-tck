@@ -1,9 +1,8 @@
-from concurrent.futures import Future
 from google.protobuf import any_pb2, empty_pb2
 from uprotocol.rpc.calloptions import CallOptions
 from uprotocol.rpc.rpcmapper import RpcMapper
 from uprotocol.proto.uri_pb2 import UUri
-from uprotocol.uri.builder.uresource_builder import UResourceBuilder
+from uprotocol.uri.factory.uresource_builder import UResourceBuilder
 from uprotocol.uuid.factory.uuidfactory import Factories
 from uprotocol.proto.upayload_pb2 import UPayload
 from uprotocol.proto.uattributes_pb2 import *
@@ -34,10 +33,10 @@ if __name__ == '__main__':
     from uprotocol.transport.builder.uattributesbuilder import UAttributesBuilder
 
     id_val = Factories.UPROTOCOL.create()
-    attributes = UAttributesBuilder.request(UPriority.UPRIORITY_CS4,uri,1000000).build()
+    attributes = UAttributesBuilder.request(uri, uri, UPriority.UPRIORITY_CS4, 1000000).build()
     transport = TransportLayer()
     transport.set_socket_config("127.0.0.1", 44444)
-    res_future: Future = transport.invoke_method(uri, payload, attributes)
+    res_future = transport.invoke_method(uri, payload, attributes)
     print('after invoke')
     try:
         # result = res_future.result()
@@ -52,4 +51,3 @@ if __name__ == '__main__':
         print(res_future.result(), res_future.done())
     except TimeoutError as e:
         print('Timeout Exception-',str(e))
-        

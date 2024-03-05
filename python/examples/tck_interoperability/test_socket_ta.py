@@ -101,6 +101,8 @@ def build_upayload():
     any_obj.Pack(build_cloud_event())
     return UPayload(format=UPayloadFormat.UPAYLOAD_FORMAT_PROTOBUF, value=any_obj.SerializeToString())
 
+def build_uattributes(uuri: UUri):
+    return UAttributesBuilder.publish(uuri, UPriority.UPRIORITY_CS4).build()
 
 def build_uattributes(uuri: UUri):
     return UAttributesBuilder.publish(uuri, UPriority.UPRIORITY_CS4).build()

@@ -28,7 +28,7 @@ def subscribe():
 
     u_authority = UAuthority(name="myremote")
     u_entity = UEntity(name='body.access', version_major=1)
-    u_resource = UResource(name="door", instance="front_right", message="Door")
+    u_resource = UResource(name="door", instance="front_left", message="Door")
     uri = UUri(authority=u_authority, entity=u_entity, resource=u_resource)
     transport = TransportLayer()
     transport.set_socket_config("127.0.0.1", 44444)

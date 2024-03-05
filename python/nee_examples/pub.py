@@ -21,23 +21,22 @@ def publish():
 
     from uprotocol.proto.uattributes_pb2 import UPriority
 
-    from sdv_simulation.protofiles.ultifi.vehicle.body.access.v1 import access_topics_pb2
-
-    protoobj = access_topics_pb2.Door()
-    protoobj.name = "door.front_left"
-    protoobj.position = 20
-    any_obj = any_pb2.Any()
-    any_obj.Pack(protoobj)
-        
+    # from sdv_simulation.protofiles.ultifi.vehicle.body.access.v1 import access_topics_pb2
+    # protoobj = access_topics_pb2.Door()
+    # protoobj.name = "door.front_left"
+    # protoobj.position = 20
     # any_obj = any_pb2.Any()
-    # any_obj.Pack(Int32Value(value=5))
+    # any_obj.Pack(protoobj)
+        
+    any_obj = any_pb2.Any()
+    any_obj.Pack(Int32Value(value=5))
     payload_data = any_obj.SerializeToString()
     payload = UPayload(value=payload_data, format=UPayloadFormat.UPAYLOAD_FORMAT_PROTOBUF)
     u_authority = UAuthority(name="myremote")
     u_entity = UEntity(name='body.access', version_major=1)
-    u_resource = UResource(name="door", instance="front_right", message="Door")
+    u_resource = UResource(name="door", instance="front_left", message="Door")
     uri = UUri(authority=u_authority, entity=u_entity, resource=u_resource)
-    attributes = UAttributesBuilder.publish(UPriority.UPRIORITY_CS4).build()
+    attributes = UAttributesBuilder.publish(uri, UPriority.UPRIORITY_CS4).build()
     transport = TransportLayer()
     transport.set_socket_config("127.0.0.1", 44444)
     transport.send(uri, payload, attributes)
