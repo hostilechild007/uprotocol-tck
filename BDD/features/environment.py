@@ -89,14 +89,18 @@ def before_all(context):
     """
     loggerutils.setup_logging()
     loggerutils.setup_formatted_logging(context)
-        
+    
+    # create global json data storage 
+    context.initialized_data = {}
+    
+    # create Dispatcher
     command = create_command("/python/dispatcher/dispatcher.py")
     process: subprocess.Popen = create_subprocess(command)
 
     context.logger.info("Created Dispatcher...")
     time.sleep(5)
 
-
+    # create Test Manager
     transport = TransportLayer()
     transport.set_socket_config("127.0.0.1", 44444)
     test_manager = SocketTestManager("127.0.0.5", 12345, transport)
@@ -106,11 +110,13 @@ def before_all(context):
 
     context.logger.info("Created Test Manager...")
     
+    # create Python Test Agent
     command = create_command("/python/examples/tck_interoperability/test_socket_ta.py")
     process: subprocess.Popen = create_subprocess(command)
     # process.wait()
     context.python_ta_process = process
 
+    # create Java Test Agent
     command = create_command("/java/java_test_agent/target/JavaTestAgent-jar-with-dependencies.jar")
     process: subprocess.Popen = create_subprocess(command)
     # process.wait()

@@ -26,15 +26,10 @@
 
 
 from uprotocol.proto.uri_pb2 import UUri, UAuthority, UEntity, UResource
-
-from protobuf_builders.uauthoritybuilder import UAuthorityBuilder
-
-from protobuf_builders.uentitybuilder import UEntityBuilder
-
-from protobuf_builders.uresourcebuilder import UResourceBuilder 
+from protobuf_builders.builder import Builder
 
 
-class UUriBuilder:
+class UUriBuilder(Builder):
 
     def __init__(self):
         self.authority: UAuthority = None
@@ -70,10 +65,3 @@ class UUriBuilder:
             proto.resource.CopyFrom(self.resource)
     
         return proto
-    
-authority = UAuthorityBuilder().add_id(b"1234").add_ip(b"4321").add_name("name").build()
-entity = UEntityBuilder().add_name("name").add_id(0).add_version_major(1).add_version_minor(2).build()
-resrc = UResourceBuilder().add_name("name").add_message("message").build()
-
-uuri = UUriBuilder().add_authority(authority).add_entity(entity).add_resource(resrc).build()
-print(uuri)

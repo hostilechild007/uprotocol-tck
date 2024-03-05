@@ -462,11 +462,11 @@ class SocketTestManager():
         sdk_name: str = json_request["ue"][0]
         command: str = json_request["action"][0].lower().strip()
         
-        entity: UEntity = UEntityBuilder().add_id(uri_entity_id).add_name(uri_entity_name).add_version_major(uri_entity_version_major).add_version_minor(uri_entity_version_minor).build()
-        resource: UResource = UResourceBuilder().add_id(uri_resource_id).add_instance(uri_resource_instance).add_message(uri_resource_message).add_name(uri_resource_name).build()
-        authority: UAuthority = UAuthorityBuilder().add_id(uri_authority_id).add_ip(uri_authority_ip).add_name(uri_authority_name).build()
+        entity: UEntity = UEntityBuilder().set_id(uri_entity_id).set_name(uri_entity_name).set_version_major(uri_entity_version_major).set_version_minor(uri_entity_version_minor).build()
+        resource: UResource = UResourceBuilder().set_id(uri_resource_id).set_instance(uri_resource_instance).set_message(uri_resource_message).set_name(uri_resource_name).build()
+        authority: UAuthority = UAuthorityBuilder().set_id(uri_authority_id).set_ip(uri_authority_ip).set_name(uri_authority_name).build()
         
-        source = UUriBuilder().add_authority(authority).add_entity(entity).add_resource(resource).build()
+        source = UUriBuilder().set_authority(authority).set_entity(entity).set_resource(resource).build()
         
         if command in [SEND_COMMAND, INVOKE_METHOD_COMMAND]:
             format: str = json_request['payload.format'][0]

@@ -4,7 +4,7 @@
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
-# distributed with this work for additional information
+# distributed with this work for setitional information
 # regarding copyright ownership.  The ASF licenses this file
 # to you under the Apache License, Version 2.0 (the
 # "License"); you may not use this file except in compliance
@@ -26,32 +26,48 @@
 
 from uprotocol.proto.uri_pb2 import UAuthority
 
+from protobuf_builders.builder import Builder
 
-class UAuthorityBuilder:
+NAME_VAR: str = "name"
+ID_VAR: str = "id"
+IP_VAR: str = "ip"
+
+class UAuthorityBuilder(Builder):
 
     def __init__(self):
         self.ip: bytes = None
         self.id: bytes = None
-        self.oneof_count = 0
         self.name: str = None
     
-    def add_ip(self, ip : bytes):
+    def set_ip(self, ip : bytes):
         
         self.ip = ip
         self.id = None
 
         return self
     
-    def add_id(self, id: bytes):
+    def set_id(self, id: bytes):
         self.id = id
         self.ip = None
 
         return self
 
-    def add_name(self, name : str):
+    def set_name(self, name : str):
         
         self.name = name
         return self
+    
+    def set(self, attribute_name: str, attribute_value: str):
+        attribute_name = attribute_name.lower().strip()
+        
+        if attribute_name == NAME_VAR:
+            return self.set_name(attribute_value)
+        elif attribute_name == ID_VAR:
+            return self.set_id(attribute_value.encode())
+        elif attribute_name == IP_VAR:
+            return self.set_ip(attribute_value.encode())
+        else:
+            raise ValueError(f"{self.__class__.__name__} doesn't handle attribute name {attribute_name}")
 
     def build(self) -> UAuthority:
         """
@@ -68,8 +84,10 @@ class UAuthorityBuilder:
             attributes.name = self.name
         return attributes
 
-# authority = UAuthorityBuilder().add_ip(b"4321").add_id(b"1234").add_id(b"1234").add_ip(b"4321").add_name("name").build()
+# authority = UAuthorityBuilder().set_ip(b"4321").set_id(b"1234").set_id(b"1234").set_ip(b"4321").set_name("name").build()
 # print("authority.name:", authority.name)
 # print(authority.ip)
 # print(authority.id)
 # print("authority: ", authority)
+authority = UAuthorityBuilder().set("ip", "4321").set("ip", "1234").set("id", "1234").set("name", "name").build()
+print(authority)

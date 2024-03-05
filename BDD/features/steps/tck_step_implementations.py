@@ -27,9 +27,16 @@ import time
 from behave import when, then, given, step
 from behave.runner import Context
 from hamcrest import assert_that, equal_to
+from logger.logger import logger
 
 from uprotocol.proto.upayload_pb2 import UPayload
+from uprotocol.proto.uri_pb2 import UResource  
+
 from test_manager.testmanager import SocketTestManager
+from protobuf_builders.uentitybuilder import UEntityBuilder
+from protobuf_builders.uresourcebuilder import UResourceBuilder
+from protobuf_builders.uuribuilder import UUriBuilder
+
 
 @given(u'“{sdk_name}” creates data for "{command}"')
 @when(u'“{sdk_name}” creates data for "{command}"')
@@ -51,7 +58,7 @@ def step_impl(context: Context, key: str, value: str):
     '''
     # NOTE: can set like ...
     # And sets "uri.resource.message" to "Door"
-    to 
+    change to 
     And sets "resource.message" to primitive "Door"  -> sets "resource".message = Door
     And sets "uri.resource" to protobuf "resource"  -> uri.resource = resource
     
@@ -121,3 +128,30 @@ def tm_closing_ta_socket(context, sdk_name: str):
 def step_impl(context, sdk_name: str):
     # context.logger.info("YOOOO SERVER cLOSED")
     pass
+
+@given('protobuf UEntity "{entity}" sets parameter "{param}" equal to string "{value}"')
+def initialize_protobuf(context, entity: str, param: str, value: str):    
+    if entity not in context.initialized_data:
+        context.initialized_data[entity] = UEntityBuilder()
+    
+    builder: UEntityBuilder = context.initialized_data[entity]
+    builder.set(param, value)
+        
+@given('protobuf UResource "{resrc}" sets parameter "{param}" equal to string "{value}"')
+def initialize_protobuf(context, resrc: str, param: str, value: str):
+    if resrc not in context.initialized_data:
+        context.initialized_data[resrc] = UResourceBuilder()
+    
+    builder: UResourceBuilder = context.initialized_data[resrc]
+    builder.set(param, value)
+
+@given('protobuf UUri "{uuri}" sets parameter "{param}" equal to created protobuf UEntity "{value}"')
+def initialize_protobuf(context, uuri: str, param: str, value: str):
+    if uuri not in context.initialized_data:
+        context.initialized_data[uuri] = UUriBuilder()
+        
+
+@given('protobuf UUri "{uuri}" sets parameter "{param}" equal to created protobuf "{value}"')
+def initialize_protobuf(context, uuri: str, param: str, value: str):
+    if uuri not in context.initialized_data:
+        context.initialized_data[uuri] = UUriBuilder()
