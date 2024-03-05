@@ -89,5 +89,5 @@ class UAuthorityBuilder(Builder):
 # print(authority.ip)
 # print(authority.id)
 # print("authority: ", authority)
-authority = UAuthorityBuilder().set("ip", "4321").set("ip", "1234").set("id", "1234").set("name", "name").build()
-print(authority)
+# authority = UAuthorityBuilder().set("ip", "4321").set("ip", "1234").set("id", "1234").set("name", "name").build()
+# print(authority)

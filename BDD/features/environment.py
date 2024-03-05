@@ -31,6 +31,7 @@ from utils import loggerutils
 import subprocess
 import sys
 from behave.runner import Context
+from logger.logger import logger
 
 from up_client_socket_python.utils.file_pathing_utils import get_git_root
 from up_client_socket_python.transport_layer import TransportLayer
@@ -87,8 +88,9 @@ def before_all(context):
     :param context: Holds contextual information during the running of tests
     :return: None
     """
-    loggerutils.setup_logging()
-    loggerutils.setup_formatted_logging(context)
+    # loggerutils.setup_logging()
+    # loggerutils.setup_formatted_logging(context)
+    context.logger = logger
     
     # create global json data storage 
     context.initialized_data = {}

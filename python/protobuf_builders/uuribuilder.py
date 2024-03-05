@@ -24,9 +24,14 @@
 
 # -------------------------------------------------------------------------
 
+from google.protobuf.any_pb2 import Any
 
 from uprotocol.proto.uri_pb2 import UUri, UAuthority, UEntity, UResource
 from protobuf_builders.builder import Builder
+
+AUTHORITY_VAR: str = "authority"
+ENTITY_VAR: str = "entity"
+RESOURCE_VAR: str = "resource"
 
 
 class UUriBuilder(Builder):
@@ -47,6 +52,18 @@ class UUriBuilder(Builder):
     def set_resource(self, resource: UResource):
         self.resource = resource
         return self
+    
+    def set(self, attribute_name: str, proto: Any):
+        attribute_name = attribute_name.lower().strip()
+        
+        if attribute_name == AUTHORITY_VAR:
+            return self.set_authority(proto)
+        elif attribute_name == ENTITY_VAR:
+            return self.set_entity(proto)
+        elif attribute_name == RESOURCE_VAR:
+            return self.set_resource(proto)
+        else:
+            raise ValueError(f"{self.__class__.__name__} doesn't handle attribute name {attribute_name}")
 
     def build(self) -> UUri:
         """

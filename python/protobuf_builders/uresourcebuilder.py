@@ -61,4 +61,4 @@ class UResourceBuilder(Builder):
         return proto
     
 
-print( UResourceBuilder().set("name", "name").set("id", "1").set("instance", "instance").set("message", "message").build() )
+# print( UResourceBuilder().set("name", "name").set("id", "1").set("instance", "instance").set("message", "message").build() )

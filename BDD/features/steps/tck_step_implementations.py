@@ -31,12 +31,20 @@ from logger.logger import logger
 
 from uprotocol.proto.upayload_pb2 import UPayload
 from uprotocol.proto.uri_pb2 import UResource  
+from uprotocol.proto.ustatus_pb2 import UStatus
+from uprotocol.proto.ustatus_pb2 import UCode
+from uprotocol.proto.uri_pb2 import UUri
+from uprotocol.proto.umessage_pb2 import UMessage
 
 from test_manager.testmanager import SocketTestManager
+
+from protobuf_builders.builder import Builder
 from protobuf_builders.uentitybuilder import UEntityBuilder
 from protobuf_builders.uresourcebuilder import UResourceBuilder
 from protobuf_builders.uuribuilder import UUriBuilder
+from protobuf_builders.umessagebuilder import UMessageBuilder
 
+from up_client_socket_python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND
 
 @given(u'“{sdk_name}” creates data for "{command}"')
 @when(u'“{sdk_name}” creates data for "{command}"')
@@ -145,13 +153,59 @@ def initialize_protobuf(context, resrc: str, param: str, value: str):
     builder: UResourceBuilder = context.initialized_data[resrc]
     builder.set(param, value)
 
-@given('protobuf UUri "{uuri}" sets parameter "{param}" equal to created protobuf UEntity "{value}"')
-def initialize_protobuf(context, uuri: str, param: str, value: str):
-    if uuri not in context.initialized_data:
-        context.initialized_data[uuri] = UUriBuilder()
-        
-
 @given('protobuf UUri "{uuri}" sets parameter "{param}" equal to created protobuf "{value}"')
 def initialize_protobuf(context, uuri: str, param: str, value: str):
     if uuri not in context.initialized_data:
         context.initialized_data[uuri] = UUriBuilder()
+        
+        # can later get filled data directly when send request
+        context.initialized_data["uuri_builder"] = context.initialized_data[uuri]
+    
+    builder: UUriBuilder = context.initialized_data[uuri]
+    value_builder: Builder = context.initialized_data[value]
+    
+    builder.set(param, value_builder.build())
+    
+@when('Test Manager sends "{command}" request to Test Agent "{sdk_name}"')
+def tm_sends_request(context, command: str, sdk_name: str):
+    command = command.lower().strip()
+    
+    if command == REGISTER_LISTENER_COMMAND:
+        uuri_builder: UUriBuilder = context.initialized_data["uuri_builder"]
+        uuri: UUri = uuri_builder.build()
+        
+        context.logger.info("uuri:")
+        context.logger.info(uuri)
+        
+        umsg: UMessage =  UMessageBuilder().set_uuri(uuri).build()
+        
+        context.logger.info("umsg:")
+        context.logger.info(umsg)
+        
+    elif command == SEND_COMMAND:
+        pass
+    
+    # wait till TA is connected
+    while not context.tm.has_sdk_connection(sdk_name):
+        continue
+    
+    test_manager: SocketTestManager = context.tm
+    context.logger.info(f"sdk_name: {sdk_name}; command: {command}")
+    context.status = test_manager.request(sdk_name, command, umsg)
+    
+    context.logger.info("context.status:")
+    context.logger.info(context.status)
+
+
+@then('Test Manager receives an "{status_code}" status for "{command}" request')
+def tm_receives_response(context, status_code: str, command: str):
+    response_status: UStatus = context.status
+    if response_status is None:
+        raise ValueError(f"{command} request did not receive a response UStatus")
+
+    status_code = status_code.lower().strip()
+    if status_code == "ok":
+        assert_that(context.status.code, equal_to(UCode.OK))
+    
+    # reset status var
+    context.status =  None

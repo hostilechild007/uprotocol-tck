@@ -65,5 +65,5 @@ class UPayloadBuilder(Builder):
             proto.format = self.format
         return proto
 
-print( UPayloadBuilder().set_reference(1).set_value(b"value").set_length(0).set_format(get_umessage_type("UMESSAGE_TYPE_UNSPECIFIED")).build() )
-print( UPayloadBuilder().set("reference", "1").set("value", "value").set("length", "0").set("format", "UMESSAGE_TYPE_UNSPECIFIED").build() )
+# print( UPayloadBuilder().set_reference(1).set_value(b"value").set_length(0).set_format(get_umessage_type("UMESSAGE_TYPE_UNSPECIFIED")).build() )
+# print( UPayloadBuilder().set("reference", "1").set("value", "value").set("length", "0").set("format", "UMESSAGE_TYPE_UNSPECIFIED").build() )
