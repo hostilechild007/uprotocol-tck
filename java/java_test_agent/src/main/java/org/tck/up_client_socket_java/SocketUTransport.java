@@ -43,7 +43,6 @@ import java.util.logging.Logger;
 public class SocketUTransport implements UTransport {
     private static final Logger logger = Logger.getLogger(SocketUTransport.class.getName());
     private final Socket socket;
-    SocketRPCClient socketRPCClient;
     private final Map<UUri, ArrayList<UListener>> topicToListener = new ConcurrentHashMap<>();
     Map<UUID, CompletableFuture<UMessage>> reqidToFuture = new HashMap<>();
 
