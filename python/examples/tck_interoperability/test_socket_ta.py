@@ -46,7 +46,7 @@ from uprotocol.proto.uattributes_pb2 import UPriority
 from uprotocol.transport.builder.uattributesbuilder import UAttributesBuilder
 from uprotocol.uri.serializer.longuriserializer import LongUriSerializer
 
-from up_client_socket_python.utils.socket_message_processing_utils import convert_json_to_jsonstring, convert_str_to_bytes, protobuf_to_base64, send_socket_data
+from up_client_socket_python.utils.socket_message_processing_utils import convert_json_to_jsonstring, convert_str_to_bytes, protobuf_to_base64, send_socket_data, create_json_message
 
 from logger.logger import logger
 
@@ -75,10 +75,7 @@ class SocketUListener(UListener):
 
         umsg: UMessage = UMessage(attributes=attributes, payload=payload)
 
-        json_message = {
-            "action": "onReceive",
-            "message": protobuf_to_base64(umsg)
-        }
+        json_message = create_json_message("onReceive", protobuf_to_base64(umsg))
 
         json_message_str: str = convert_json_to_jsonstring(json_message)
 

@@ -72,3 +72,56 @@ Feature: Test Manager and Test Agent messaging to each other directly or with So
         | python  | java   |
         | python  | python |
         | java    | python |
+
+    Scenario Outline: Testing Test Manager's invoke_method() request to Test Agent
+
+        Given protobuf UEntity "entity" sets parameter "name" equal to string "body.access"  
+            And protobuf UResource "resource" sets parameter "name" equal to string "door" 
+            And protobuf UResource "resource" sets parameter "instance" equal to string "front_left" 
+            And protobuf UResource "resource" sets parameter "message" equal to string "Door" 
+            And protobuf UUri "uuri" sets parameter "entity" equal to created protobuf "entity"
+            And protobuf UUri "uuri" sets parameter "resource" equal to created protobuf "resource"
+
+            And protobuf UAttributes "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
+
+            And protobuf UPayload "payload" sets parameter "format" equal to "UPAYLOAD_FORMAT_PROTOBUF"
+            And protobuf UPayload "payload" sets parameter "value" equal to "serialized protobuf data"
+        
+        When Test Manager sends "invokemethod" request to Test Agent "<uE1>"
+
+        Then Test Manager receives an "OK" status for "invokemethod" request
+
+        Examples: 
+        | uE1     |
+        | python  |
+        | java    |
+    
+    Scenario Outline: Testing Test Manager's long uri serializer request to Test Agent
+
+        Given protobuf UEntity "entity" sets parameter "name" equal to string "body.access"  
+            And protobuf UResource "resource" sets parameter "name" equal to string "door" 
+            And protobuf UResource "resource" sets parameter "instance" equal to string "front_left" 
+            And protobuf UResource "resource" sets parameter "message" equal to string "Door" 
+            And protobuf UUri "uuri" sets parameter "entity" equal to created protobuf "entity"
+            And protobuf UUri "uuri" sets parameter "resource" equal to created protobuf "resource"
+        
+        When Test Manager sends "longuriserialize" uri serializer request to Test Agent "<uE1>"
+
+        Then Test Manager receives a string "/body.access//door.front_left#Door"
+
+        Examples: 
+        | uE1     |
+        | python  |
+        | java    |
+    
+    # Scenario Outline: Testing Test Manager's long uri deserializer request to Test Agent
+
+    #     Given serialized UUri string "/body.access//door.front_left#Door"
+        
+    #     When Test Manager sends "longurideserialize" uri serializer request to Test Agent "<uE1>"
+
+    #     Then Test Manager receives a protobuf UUri "/body.access//door.front_left#Door"
+
+    #     Examples: 
+    #     | uE1     |
+    #     | python  |

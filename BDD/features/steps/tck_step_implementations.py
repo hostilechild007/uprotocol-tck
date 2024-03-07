@@ -35,7 +35,8 @@ from uprotocol.proto.ustatus_pb2 import UCode
 from uprotocol.proto.uri_pb2 import UUri
 from uprotocol.proto.uattributes_pb2 import UAttributes, UPriority, UMessageType
 from uprotocol.proto.umessage_pb2 import UMessage
-
+from uprotocol.uri.serializer.longuriserializer import LongUriSerializer
+from uprotocol.uri.serializer.microuriserializer import MicroUriSerializer
 from test_manager.testmanager import SocketTestManager
 
 from protobuf_builders.builder import Builder
@@ -46,7 +47,7 @@ from protobuf_builders.umessagebuilder import UMessageBuilder
 from protobuf_builders.upayloadbuilder import UPayloadBuilder
 from uprotocol.transport.builder.uattributesbuilder import UAttributesBuilder
 
-from up_client_socket_python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND
+from up_client_socket_python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND, LONG_URI_SERIALIZE, LONG_URI_DESERIALIZE, MICRO_URI_SERIALIZE, MICRO_URI_DESERIALIZE
 
 from getters.umessagegetter import UMessageGetter
 from getters.upayloadgetter import UPayloadGetter
@@ -200,7 +201,7 @@ def tm_sends_request(context, command: str, sdk_name: str):
         
         umsg: UMessage =  UMessageBuilder().set_uuri(uuri).build()
         
-    elif command == SEND_COMMAND:       
+    elif command in [SEND_COMMAND, INVOKE_METHOD_COMMAND]:       
         uuri_builder: UUriBuilder = context.initialized_data["uuri_builder"]
         uuri: UUri = uuri_builder.build()
         
@@ -211,6 +212,7 @@ def tm_sends_request(context, command: str, sdk_name: str):
         upayload: UPayload = upay_builder.build()
         
         umsg: UMessage =  UMessageBuilder().set_uuri(uuri).set_payload(upayload).set_attributes(uattr).build()
+    
         
     # wait till TA is connected
     while not context.tm.has_sdk_connection(sdk_name):
@@ -223,6 +225,30 @@ def tm_sends_request(context, command: str, sdk_name: str):
     context.logger.info("context.status:")
     context.logger.info(context.status)
 
+
+@when('Test Manager sends "{command}" uri serializer request to Test Agent "{sdk_name}"')
+def tm_sends_uri_serializer_request(context, command: str, sdk_name: str):
+    command = command.lower().strip()
+    
+    uuri_builder: UUriBuilder = context.initialized_data["uuri_builder"]
+    uuri: UUri = uuri_builder.build()
+        
+    # wait till TA is connected
+    while not context.tm.has_sdk_connection(sdk_name):
+        continue
+    
+    test_manager: SocketTestManager = context.tm
+    
+    if command == LONG_URI_SERIALIZE:
+        translation: str = test_manager.uriserializer_request(sdk_name, command, uuri)
+    
+    elif command == LONG_URI_DESERIALIZE:
+        # Input String and TA should respond with UUri proto
+        
+        topic_str: str = LongUriSerializer().deserialize(uuri)
+        translation: UUri = test_manager.uriserializer_request(sdk_name, command, topic_str)
+        
+    context.translation = translation
 
 @then('Test Manager receives an "{status_code}" status for "{command}" request')
 def tm_receives_response(context, status_code: str, command: str):
@@ -250,3 +276,17 @@ def tm_receives_onreceive(context, sdk_name: str, param: str, inner_param: str, 
     actual = UPayloadGetter(upay).get(inner_param)
         
     assert_that(actual.decode('utf-8'), equal_to(expected))
+    
+@then('Test Manager receives a string "{expected_translation}"')
+def tm_receives_serializer_translation(context, expected_translation: str):
+    
+    if context.translation is None:
+        raise ValueError(f"Test Manager did not receive any serializer translation")
+    elif not isinstance(context.translation, str):
+        raise ValueError(f"Test Manager did not receive string translation")
+
+    actual_translation: str = context.translation 
+    context.translation = None
+    
+    context.logger.info(f"actual_translation: {actual_translation}")
+    assert_that(actual_translation, equal_to(expected_translation))

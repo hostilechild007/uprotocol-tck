@@ -1,4 +1,8 @@
 from uprotocol.proto.uri_pb2 import UUri
+from uprotocol.proto.uri_pb2 import UEntity 
+from uprotocol.proto.uri_pb2 import UAuthority
+from uprotocol.proto.uri_pb2 import UResource  
+
 from uprotocol.uri.serializer.microuriserializer import MicroUriSerializer
 from uprotocol.uri.serializer.longuriserializer import LongUriSerializer
 from uprotocol.transport.builder.uattributesbuilder import UAttributesBuilder
@@ -20,17 +24,10 @@ def build_uattributes(uuri: UUri):
 
     return UAttributesBuilder.publish(uuri, UPriority.UPRIORITY_CS4).build()
 
-attr = build_uattributes(topic)
-pay = UPayloadBuilder().set("reference", "1").set("value", "value").set("length", "0").set("format", "UPAYLOAD_FORMAT_UNSPECIFIED").build()
 
-umsg = UMessageBuilder().set_uuri(topic).set_attributes(attr).set_payload(pay).build()
-print(umsg)
+u_entity = UEntity(name="body.access")
+u_resource = UResource(name="door", instance="front_left", message="Door")
+uri = UUri(entity=u_entity,resource= u_resource)
 
-# s = UStatus(code=UCode.OK, message="OK") 
-# print(type(s.code))
-
-# a = UAuthorityBuilder()
-# b = a
-
-# a.set_id(b"bytes")
-# print(b.id)
+s = LongUriSerializer().serialize(uri)
+print(s)

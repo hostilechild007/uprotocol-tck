@@ -541,8 +541,7 @@ class SocketTestManager():
         sdk_ta_destination = sdk_ta_destination.lower().strip()
 
         test_agent_socket: socket.socket = self.sdk_to_test_agent_socket[sdk_ta_destination]
-        print("proto:", proto)
-        print(type(proto))
+
         self._send_to_test_agent(test_agent_socket, command, proto)
         
         translation: str = self.__pop_serializer_translation(sdk_ta_destination)

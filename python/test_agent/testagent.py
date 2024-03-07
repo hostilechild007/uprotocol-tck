@@ -46,12 +46,14 @@ from up_client_socket_python.utils.socket_message_processing_utils import send_s
 from up_client_socket_python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND, COMMANDS, SERIALIZERS, LONG_URI_SERIALIZE, LONG_URI_DESERIALIZE, MICRO_URI_SERIALIZE, MICRO_URI_DESERIALIZE, LONG_URI_SERIALIZE_RESPONSE, LONG_URI_DESERIALIZE_RESPONSE, MICRO_URI_SERIALIZE_RESPONSE, MICRO_URI_DESERIALIZE_RESPONSE
 from uprotocol.transport.ulistener import UListener
 
-from up_client_socket_python.utils.socket_message_processing_utils import is_json_message, is_serialized_protobuf, is_serialized_string
+from up_client_socket_python.utils.socket_message_processing_utils import is_json_message, create_json_message
 
 from serializer.serializerselector import JsonMessageSerializerSelector
 from serializer.json_message_serializer import JsonMessageSerializer
 
 from logger.logger import logger
+
+from getters.umessagegetter import UMessageGetter
 
 class SocketTestAgent:
     def __init__(self, test_clientsocket: socket.socket, utransport: TransportLayer, listener: UListener) -> None:
@@ -129,8 +131,7 @@ class SocketTestAgent:
         json_msg_serializer: JsonMessageSerializer = self.json_msg_serializer_selector.select(action)
         response_json: Dict[str, str] = json_msg_serializer.execute(json_msg)
         
-        logger.info("response_json:")
-        logger.info(response_json)
+        logger.info(f"response_json: {response_json}")
 
         self.send_to_TM(response_json)
         
@@ -143,17 +144,18 @@ class SocketTestAgent:
         logger.info('action: ' + action)
         logger.info("received_proto: ")
         logger.info(received_proto)
-
+        
+        umesg_getter = UMessageGetter(received_proto)
 
         status: UStatus = None
         if action == SEND_COMMAND:
-            status = self.utransport.send(received_proto.attributes.source, received_proto.payload, received_proto.attributes)
+            status = self.utransport.send(umesg_getter.get_source(), umesg_getter.get_payload(), umesg_getter.get_attributes())
         elif action == REGISTER_LISTENER_COMMAND:
-            status = self.utransport.register_listener(received_proto.attributes.source, listener)
+            status = self.utransport.register_listener(umesg_getter.get_source(), listener)
         elif action == UNREGISTER_LISTENER_COMMAND:
-            status = self.utransport.unregister_listener(received_proto.attributes.source, listener)
+            status = self.utransport.unregister_listener(umesg_getter.get_source(), listener)
         elif action == INVOKE_METHOD_COMMAND:
-            future_umsg: Future = self.utransport.invoke_method(received_proto.attributes.source, received_proto.payload, received_proto.attributes)
+            future_umsg: Future = self.utransport.invoke_method(umesg_getter.get_source(), umesg_getter.get_payload(), umesg_getter.get_attributes())
             
             status = UStatus(code=UCode.OK, message="OK") 
         self.send(status)
@@ -173,10 +175,7 @@ class SocketTestAgent:
         
         umsg: UMessage = UMessage(attributes=attributes, payload=payload)
 
-        json_message = {
-            "action": "send",
-            "message": protobuf_to_base64(umsg) 
-        }
+        json_message = create_json_message("send", protobuf_to_base64(umsg) )
 
         self.send_to_TM(json_message)
 
@@ -186,11 +185,7 @@ class SocketTestAgent:
         Sends UStatus to Test Manager 
         @param status: the reply after receiving a message
         """
-
-        json_message = {
-            "action": "uStatus",
-            "message": protobuf_to_base64(status) 
-        }
+        json_message = create_json_message("uStatus", protobuf_to_base64(status) )
 
         self.send_to_TM(json_message)
 
