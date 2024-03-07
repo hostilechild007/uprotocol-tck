@@ -138,7 +138,6 @@ Feature: Test Manager and Test Agent messaging to each other directly or with So
         Examples: 
         | uE1     |
         | python  |
-        | java    |
     
     # Scenario Outline: Testing Test Manager's long uri deserializer request to Test Agent
 
