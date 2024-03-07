@@ -32,8 +32,11 @@ import org.eclipse.uprotocol.v1.*;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.tck.serializer.JsonMessageSerializer;
+import org.tck.serializer.JsonMessageSerializerSelector;
 import org.tck.up_client_socket_java.SocketUListener;
 import org.tck.up_client_socket_java.SocketUTransport;
+import org.tck.utils.Constants;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -87,16 +90,6 @@ public class TestAgent {
                     logger.info("jsonString from TM: " + jsonStr);
                     if (isValidJSON(jsonStr)) {
                         handle_json_message(jsonStr, listener);
-                    } else if (isSerializedProtobuf((jsonStr.getBytes()))) {
-                        System.out.println("is_serialized_protobuf");
-                        UUri topic = UUri.parseFrom(jsonStr.getBytes());
-                        String uuriSerialized = LongUriSerializer.instance().serialize(topic);
-                        byte[] uuri_serialized_b = uuriSerialized.getBytes();
-
-                        System.out.println("sending uuri_serialized " + uuri_serialized_b);
-                        clientOutputStream = clientSocket.getOutputStream();
-                        clientOutputStream.write(uuri_serialized_b);
-                        clientOutputStream.flush();
                     }
                 } else {
                     clientSocket.close();
@@ -115,7 +108,23 @@ public class TestAgent {
         jsonObject = new JSONObject(jsonStr);
         String action = jsonObject.getString("action");
         logger.info("action ->" + action);
-        String message = jsonObject.getString("message");
+        if (Constants.COMMANDS.contains(action)) {
+            this.handleCommandJson(jsonObject, listener);
+        } else if (Constants.SERIALIZERS.contains(action)) {
+            this.handleSerializeJson(jsonObject);
+        }
+    }
+
+    public void handleSerializeJson(JSONObject jsonObj) throws InvalidProtocolBufferException {
+        String action = jsonObj.getString("action");
+        JsonMessageSerializer jsonMessageSerializer = new JsonMessageSerializerSelector().select(action);
+        JSONObject response = jsonMessageSerializer.execute(jsonObj);
+        sendToTM(response);
+    }
+
+    public void handleCommandJson(JSONObject jsonObj, UListener listener) throws InvalidProtocolBufferException {
+        String action = jsonObj.getString("action");
+        String message = jsonObj.getString("message");
         byte[] protobuf_bytes = base64ToProtobufBytes(message);
         logger.info("message ->" + protobuf_bytes);
         UMessage umsg = UMessage.parseFrom(protobuf_bytes);
