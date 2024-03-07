@@ -47,10 +47,12 @@ from python.test_agent.transport_layer import TransportLayer
 from python.utils.socket_message_processing_utils import (send_socket_data,
                                                                                   receive_socket_data, \
     convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, \
-    protobuf_to_base64, base64_to_protobuf_bytes)
+    protobuf_to_base64, base64_to_protobuf_bytes, is_json_message, create_json_message)
 from python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, \
-    UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND
+    UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND, COMMANDS, SERIALIZERS
 from python.logger.logger import logger
+
+from python.getters.umessagegetter import UMessageGetter
 
 
 class SocketTestAgent:
@@ -66,6 +68,7 @@ class SocketTestAgent:
         self.utransport: TransportLayer = utransport
 
         self.possible_received_protobufs = [UMessage()]
+        # self.json_msg_serializer_selector: JsonMessageSerializerSelector = JsonMessageSerializerSelector()
 
         # Client Socket connection to Test Manager
         self.clientsocket: socket.socket = test_clientsocket
@@ -87,36 +90,63 @@ class SocketTestAgent:
                 self.clientsocket.close()
                 return
 
-            json_str: str = convert_bytes_to_string(recv_data)
-            json_msg: Dict[str, str] = convert_jsonstring_to_json(json_str)
+            if is_json_message(recv_data): 
+                self._handle_json_message(recv_data, listener)
+                
+            
+    def _handle_json_message(self, recv_data: bytes, listener: UListener):
+        json_str: str = convert_bytes_to_string(recv_data) 
+        json_msg: Dict[str, str] = convert_jsonstring_to_json(json_str) 
 
-            action: str = json_msg["action"]
-            umsg_base64: str = json_msg["message"]
-            protobuf_serialized_data: bytes = base64_to_protobuf_bytes(umsg_base64)
+        if json_msg["action"] in COMMANDS:
+            self._handle_command_json(json_msg, listener)
+    
+        
+    def _handle_command_json(self, json_msg: Dict[str, str], listener: UListener):
+        action: str = json_msg["action"]
+        umsg_base64: str = json_msg["message"]
+        protobuf_serialized_data: bytes = base64_to_protobuf_bytes(umsg_base64)  
+        
+        received_proto: UMessage = RpcMapper.unpack_payload(Any(value=protobuf_serialized_data), UMessage)
+        logger.info('action: ' + action)
+        logger.info("received_proto: ")
+        logger.info(received_proto)
+        
+        umesg_getter = UMessageGetter(received_proto)
 
-            umsg: UMessage = RpcMapper.unpack_payload(Any(value=protobuf_serialized_data), UMessage)
+        status: UStatus = None
+        if action == SEND_COMMAND:
+            status = self.utransport.send(received_proto)
+        elif action == REGISTER_LISTENER_COMMAND:
+            status = self.utransport.register_listener(umesg_getter.get_source(), listener)
+        elif action == UNREGISTER_LISTENER_COMMAND:
+            status = self.utransport.unregister_listener(umesg_getter.get_source(), listener)
+        elif action == INVOKE_METHOD_COMMAND:
+            future_umsg: Future = self.utransport.invoke_method(umesg_getter.get_source(), umesg_getter.get_payload(), umesg_getter.get_attributes())
+            
+            # need to have service that sends data back above
+            # currently the Test Agent is the Client_door, and can act as service
+            status = UStatus(code=UCode.OK, message="OK") 
+        self.send(status)
+            
 
-            status: UStatus = None
-            if action == SEND_COMMAND:
-                status = self.utransport.send(umsg)
-            elif action == REGISTER_LISTENER_COMMAND:
-                status = self.utransport.register_listener(umsg.attributes.source, listener)
-            elif action == UNREGISTER_LISTENER_COMMAND:
-                status = self.utransport.unregister_listener(umsg.attributes.source, listener)
-
-                status = UStatus(code=UCode.OK, message="OK")
-            self.send(status)
-
-    @dispatch(UMessage)
-    def send(self, umsg: UMessage):
+    @dispatch(UUri, UPayload, UAttributes)
+    def send(self, topic: UUri, payload: UPayload, attributes: UAttributes):
         """
         Sends UMessage data to Test Manager
-        @param umsg: UMessage to return to Test Manager
+        @param topic: part of UMessage
+        @param payload: part of UMessage
+        @param attributes: part of UMessage
         """
 
-        json_message = {"action": "send", "message": protobuf_to_base64(umsg)}
+        if topic is not None:
+            attributes.source.CopyFrom(topic)
+        
+        umsg: UMessage = UMessage(attributes=attributes, payload=payload)
 
-        self.send_to_tm(json_message)
+        json_message = create_json_message("send", protobuf_to_base64(umsg) )
+
+        self.send_to_TM(json_message)
 
     @dispatch(UStatus)
     def send(self, status: UStatus):
@@ -124,12 +154,12 @@ class SocketTestAgent:
         Sends UStatus to Test Manager 
         @param status: the reply after receiving a message
         """
+        json_message = create_json_message("uStatus", protobuf_to_base64(status) )
 
-        json_message = {"action": "uStatus", "message": protobuf_to_base64(status)}
+        self.send_to_TM(json_message)
 
-        self.send_to_tm(json_message)
 
-    def send_to_tm(self, json_message: Dict[str, str]):
+    def send_to_TM(self, json_message: Dict[str, str]):
         """
         Sends json data to Test Manager
         @param json_message: json message
@@ -137,7 +167,7 @@ class SocketTestAgent:
         json_message_str: str = convert_json_to_jsonstring(json_message)
 
         message: bytes = convert_str_to_bytes(json_message_str)
-
+        
         send_socket_data(self.clientsocket, message)
         logger.info(f"Sent to TM {message}")
 

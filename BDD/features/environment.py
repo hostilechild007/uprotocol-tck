@@ -58,6 +58,7 @@ def create_command(filepath_from_root_repo: str) -> List[str]:
     command: List[str] = []
 
     if sys.platform == "win32":
+        command.append("start")
         pass
     elif sys.platform == "linux" or sys.platform == "linux2":
         command.append('gnome-terminal')
@@ -103,6 +104,9 @@ def before_all(context):
     """
     loggerutils.setup_logging()
     loggerutils.setup_formatted_logging(context)
+    
+    # create global json data storage 
+    context.initialized_data = {}
 
     command = create_command("/python/dispatcher/dispatcher.py")
     process: subprocess.Popen = create_subprocess(command)
@@ -129,6 +133,9 @@ def before_all(context):
 
 
 def after_all(context: Context):
+    # bandaid on race condition between onReceive mesg Test vs. closing sockets
+    time.sleep(3)
+
     # Closes sockets and releases memory
     test_manager: SocketTestManager = context.tm
 

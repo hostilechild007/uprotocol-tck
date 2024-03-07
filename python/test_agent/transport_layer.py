@@ -87,3 +87,6 @@ class TransportLayer:
 
     def unregister_listener(self, topic: UUri, listener: UListener) -> UStatus:
         return self.__instance.unregister_listener(topic, listener)
+    
+    def invoke_method(self, topic: UUri, payload: UPayload, attributes: UAttributes) -> Future:
+        return self.__instance.invoke_method(topic, payload, attributes)

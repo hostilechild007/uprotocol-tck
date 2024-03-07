@@ -84,4 +84,4 @@ if __name__ == "__main__":
 
     agent = SocketTestAgent(test_agent_socket, transport, listener)
 
-    agent.send_to_tm({'SDK_name': "python"})
+    agent.send_to_TM({'SDK_name': "python"})

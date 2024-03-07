@@ -42,6 +42,7 @@ from uprotocol.transport.ulistener import UListener
 from uprotocol.transport.utransport import UTransport
 from uprotocol.proto.umessage_pb2 import UMessage
 from uprotocol.rpc.rpcmapper import RpcMapper
+from python.protobuf_builders.umessagebuilder import UMessageBuilder
 
 from python.utils.constants import DISPATCHER_ADDR, BYTES_MSG_LENGTH
 
@@ -188,6 +189,7 @@ class SocketUTransport(UTransport):
         response = Future()
         self.reqid_to_future[request_id.SerializeToString()] = response
 
-        self.send(topic, payload, attributes)
+        umsg: UMessage = UMessageBuilder().set_uuri(topic).set_payload(payload).set_attributes(attributes).build()
+        self.send(umsg)
         
         return response
