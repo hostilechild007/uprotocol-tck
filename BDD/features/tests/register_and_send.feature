@@ -24,63 +24,77 @@
 #
 # -------------------------------------------------------------------------
 
-Feature: Default
-Scenario Outline: To test longform URI
-    Given “<uE1>” creates data for "registerlistener"
-      And sets "uri.entity.name" to "body.access"
-      And sets "uri.resource.name" to "door"
-      And sets "uri.resource.instance" to "front_left"
-      And sets "uri.resource.message" to "Door"
-      And sends "registerlistener" request
-      And the status for "registerlistener" request is "OK"
+Feature: Test Manager and Test Agent messaging to each other directly or with SocketUTransport and Dispatcher
 
-    When “<uE2>” creates data for "send"
-      And sets "uri.entity.name" to "body.access"
-      And sets "uri.resource.name" to "door"
-      And sets "uri.resource.instance" to "front_left"
-      And sets "uri.resource.message" to "Door"
-      And sets "attributes.priority" to "UPRIORITY_CS1"
-      And sets "attributes.type" to "UMESSAGE_TYPE_PUBLISH"
-      And sets "attributes.id" to "12345"
-      And sets "payload.format" to "protobuf"
-      And sets "payload.value" to "serialized protobuf data"
-      And sends "send" request
-      And the status for "send" request is "OK"
+#NOTE: A behavior scenario specification should focus on one individual behavior
 
-    Then "<uE1>" receives "payload.value" as "serialized protobuf data"
+    Scenario Outline: Test Manager's registerlistener() request to Test Agent
+        #New Given: set data first for (UUri, UPayload, UAttributes)
+        # should have separate scenarios checking status for registerlistener() and send()
 
-    Examples: topic_names
-    | uE1     | uE2    |
-    | python  | java   |
-    | python  | python |
-    | java    | python |
+        # Note: each step should be DESCRIPTIVE as POSSIBLE!
+        Given protobuf UEntity "entity" sets parameter "name" equal to string "body.access"  
+            And protobuf UResource "resource" sets parameter "name" equal to string "door" 
+            And protobuf UResource "resource" sets parameter "instance" equal to string "front_left" 
+            And protobuf UResource "resource" sets parameter "message" equal to string "Door" 
+
+            And protobuf UUri "uuri" sets parameter "entity" equal to created protobuf "entity"
+            And protobuf UUri "uuri" sets parameter "resource" equal to created protobuf "resource"
+        
+        When Test Manager sends "registerlistener" request to Test Agent "<uE1>"
+        Then Test Manager receives an "OK" status for "registerlistener" request
+
+        Examples: 
+        | uE1     |
+        | python  |
+        | java    |
+
+    Scenario Outline: Testing Test Manager's send() request to Test Agent
+
+        Given protobuf UEntity "entity" sets parameter "name" equal to string "body.access"  
+            And protobuf UResource "resource" sets parameter "name" equal to string "door" 
+            And protobuf UResource "resource" sets parameter "instance" equal to string "front_left" 
+            And protobuf UResource "resource" sets parameter "message" equal to string "Door" 
+            And protobuf UUri "uuri" sets parameter "entity" equal to created protobuf "entity"
+            And protobuf UUri "uuri" sets parameter "resource" equal to created protobuf "resource"
+
+            And protobuf UAttributes "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
+
+            And protobuf UPayload "payload" sets parameter "format" equal to "UPAYLOAD_FORMAT_PROTOBUF"
+            And protobuf UPayload "payload" sets parameter "value" equal to "serialized protobuf data"
+        
+        When Test Manager sends "send" request to Test Agent "<uE1>"
+        Then Test Manager receives an "OK" status for "send" request
 
 
-Scenario Outline: To test micro URI
-    Given “<uE1>” creates data for "registerlistener"
-      And sets "uri.entity.id" to "29999"
-      And sets "uri.entity.version_major" to "254"
-      And sets "uri.resource.id" to "19999"
-      And sends "registerlistener" request
-      And the status for "registerlistener" request is "OK"
+        Examples: 
+        | uE1     |
+        | python  |
+        | java    |
 
-    When “<uE2>” creates data for "send"
-      And sets "uri.entity.name" to "body.access"
-      And sets "uri.resource.name" to "door"
-      And sets "uri.resource.instance" to "front_left"
-      And sets "uri.resource.message" to "Door"
-      And sets "attributes.priority" to "UPRIORITY_CS1"
-      And sets "attributes.type" to "UMESSAGE_TYPE_PUBLISH"
-      And sets "attributes.id" to "12345"
-      And sets "payload.format" to "protobuf"
-      And sets "payload.value" to "serialized protobuf data"
-      And sends "send" request
-      And the status for "send" request is "OK"
 
-    Then "<uE1>" receives "payload.value" as "serialized protobuf data"
+    Scenario Outline: Testing if registered Test Agent listener will receive sent message via SocketUTransport
 
-    Examples: topic_names
-    | uE1     | uE2    |
-    | python  | java   |
-    | python  | python |
-    | java    | python |
+        Given protobuf UEntity "entity" sets parameter "name" equal to string "body.access"  
+            And protobuf UResource "resource" sets parameter "name" equal to string "door" 
+            And protobuf UResource "resource" sets parameter "instance" equal to string "front_left" 
+            And protobuf UResource "resource" sets parameter "message" equal to string "Door" 
+            And protobuf UUri "uuri" sets parameter "entity" equal to created protobuf "entity"
+            And protobuf UUri "uuri" sets parameter "resource" equal to created protobuf "resource"
+
+            And protobuf UAttributes "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
+
+            And protobuf UPayload "payload" sets parameter "format" equal to "UPAYLOAD_FORMAT_PROTOBUF"
+            And protobuf UPayload "payload" sets parameter "value" equal to "serialized protobuf data"
+        
+        When Test Manager sends "registerlistener" request to Test Agent "<uE1>"
+            And Test Manager sends "send" request to Test Agent "<uE2>"
+
+        Then Test Manager receives OnReceive UMessage from "<uE1>" Test Agent with parameter UPayload "payload" with parameter "value" as "serialized protobuf data"
+
+
+        Examples: Test Agents
+        | uE1     | uE2    |
+        | python  | java   |
+        | python  | python |
+        | java    | python |

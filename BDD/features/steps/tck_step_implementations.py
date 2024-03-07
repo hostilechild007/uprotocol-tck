@@ -27,13 +27,13 @@ import time
 from behave import when, then, given, step
 from behave.runner import Context
 from hamcrest import assert_that, equal_to
-from logger.logger import logger
 
 from uprotocol.proto.upayload_pb2 import UPayload
 from uprotocol.proto.uri_pb2 import UResource  
 from uprotocol.proto.ustatus_pb2 import UStatus
 from uprotocol.proto.ustatus_pb2 import UCode
 from uprotocol.proto.uri_pb2 import UUri
+from uprotocol.proto.uattributes_pb2 import UAttributes, UPriority, UMessageType
 from uprotocol.proto.umessage_pb2 import UMessage
 
 from test_manager.testmanager import SocketTestManager
@@ -43,8 +43,13 @@ from protobuf_builders.uentitybuilder import UEntityBuilder
 from protobuf_builders.uresourcebuilder import UResourceBuilder
 from protobuf_builders.uuribuilder import UUriBuilder
 from protobuf_builders.umessagebuilder import UMessageBuilder
+from protobuf_builders.upayloadbuilder import UPayloadBuilder
+from uprotocol.transport.builder.uattributesbuilder import UAttributesBuilder
 
 from up_client_socket_python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND
+
+from getters.umessagegetter import UMessageGetter
+from getters.upayloadgetter import UPayloadGetter
 
 @given(u'“{sdk_name}” creates data for "{command}"')
 @when(u'“{sdk_name}” creates data for "{command}"')
@@ -166,6 +171,25 @@ def initialize_protobuf(context, uuri: str, param: str, value: str):
     
     builder.set(param, value_builder.build())
     
+@given('protobuf UAttributes "{uattr}" creates publish message with parameter source equal to created protobuf "{value}"')
+def initialize_protobuf(context, uattr: str, value: str):
+    value_builder: Builder = context.initialized_data[value]
+    
+    new_builder: UAttributesBuilder = UAttributesBuilder.publish(value_builder.build(), UPriority.UPRIORITY_CS1)
+    context.initialized_data[uattr] = new_builder
+    context.initialized_data["uattributes_builder"] = new_builder
+
+@given('protobuf UPayload "{payload}" sets parameter "{param}" equal to "{value}"')
+def initialize_protobuf(context, payload: str, param: str, value: str):
+    if payload not in context.initialized_data:
+        context.initialized_data[payload] = UPayloadBuilder()
+        
+        context.initialized_data["upayload_builder"] = context.initialized_data[payload]
+    
+    builder: UPayloadBuilder = context.initialized_data[payload]
+    builder.set(param, value)
+
+    
 @when('Test Manager sends "{command}" request to Test Agent "{sdk_name}"')
 def tm_sends_request(context, command: str, sdk_name: str):
     command = command.lower().strip()
@@ -174,17 +198,20 @@ def tm_sends_request(context, command: str, sdk_name: str):
         uuri_builder: UUriBuilder = context.initialized_data["uuri_builder"]
         uuri: UUri = uuri_builder.build()
         
-        context.logger.info("uuri:")
-        context.logger.info(uuri)
-        
         umsg: UMessage =  UMessageBuilder().set_uuri(uuri).build()
         
-        context.logger.info("umsg:")
-        context.logger.info(umsg)
+    elif command == SEND_COMMAND:       
+        uuri_builder: UUriBuilder = context.initialized_data["uuri_builder"]
+        uuri: UUri = uuri_builder.build()
         
-    elif command == SEND_COMMAND:
-        pass
-    
+        uattr_builder: UAttributesBuilder = context.initialized_data["uattributes_builder"]
+        uattr: UAttributes = uattr_builder.build()
+        
+        upay_builder: UPayloadBuilder = context.initialized_data["upayload_builder"]
+        upayload: UPayload = upay_builder.build()
+        
+        umsg: UMessage =  UMessageBuilder().set_uuri(uuri).set_payload(upayload).set_attributes(uattr).build()
+        
     # wait till TA is connected
     while not context.tm.has_sdk_connection(sdk_name):
         continue
@@ -206,6 +233,20 @@ def tm_receives_response(context, status_code: str, command: str):
     status_code = status_code.lower().strip()
     if status_code == "ok":
         assert_that(context.status.code, equal_to(UCode.OK))
+        # assert_that(context.status.code, equal_to(UCode.INTERNAL))
     
     # reset status var
     context.status =  None
+
+@then('Test Manager receives OnReceive UMessage from "{sdk_name}" Test Agent with parameter UPayload "{param}" with parameter "{inner_param}" as "{expected}"')
+def tm_receives_onreceive(context, sdk_name: str, param: str, inner_param: str, expected: str):
+    test_manager: SocketTestManager = context.tm
+    
+    umsg: UMessage = test_manager.get_onreceive(sdk_name)
+    
+    umsg_param_getter = UMessageGetter(umsg)
+    upay: UPayload = umsg_param_getter.get(param)
+    
+    actual = UPayloadGetter(upay).get(inner_param)
+        
+    assert_that(actual.decode('utf-8'), equal_to(expected))
