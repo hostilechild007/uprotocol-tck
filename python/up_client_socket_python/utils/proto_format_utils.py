@@ -25,7 +25,7 @@
 # -------------------------------------------------------------------------
 
 from uprotocol.proto.uattributes_pb2 import UPriority, UMessageType
-
+from uprotocol.proto.upayload_pb2 import UPayloadFormat 
 
 def get_priority(priority: str) -> UPriority :
     priority = priority.strip()
@@ -72,3 +72,33 @@ def get_umessage_type(umessage_type: str) -> UMessageType :
         return UMessageType.UMESSAGE_TYPE_RESPONSE 
     else:
         raise Exception("UMessageType value not handled!")
+    
+def get_upayload_format(upayload_format: str) -> UPayloadFormat:
+    upayload_format = upayload_format.strip()
+    
+    if upayload_format == "UPAYLOAD_FORMAT_UNSPECIFIED":
+        return UPayloadFormat.UPAYLOAD_FORMAT_UNSPECIFIED 
+    
+    elif upayload_format == "UPAYLOAD_FORMAT_PROTOBUF_WRAPPED_IN_ANY":
+        return UPayloadFormat.UPAYLOAD_FORMAT_PROTOBUF_WRAPPED_IN_ANY 
+    
+    elif upayload_format == "UPAYLOAD_FORMAT_PROTOBUF":
+        return UPayloadFormat.UPAYLOAD_FORMAT_PROTOBUF 
+    
+    elif upayload_format == "UPAYLOAD_FORMAT_JSON":
+        return UPayloadFormat.UPAYLOAD_FORMAT_JSON 
+    
+    elif upayload_format == "UPAYLOAD_FORMAT_SOMEIP":
+        return UPayloadFormat.UPAYLOAD_FORMAT_SOMEIP
+     
+    elif upayload_format == "UPAYLOAD_FORMAT_SOMEIP_TLV":
+        return UPayloadFormat.UPAYLOAD_FORMAT_SOMEIP_TLV
+     
+    elif upayload_format == "UPAYLOAD_FORMAT_RAW":
+        return UPayloadFormat.UPAYLOAD_FORMAT_RAW 
+    
+    elif upayload_format == "UPAYLOAD_FORMAT_TEXT":
+        return UPayloadFormat.UPAYLOAD_FORMAT_TEXT 
+
+    else:
+        raise Exception("UPayloadFormat value not handled!")

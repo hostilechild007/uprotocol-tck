@@ -1,13 +1,8 @@
 from uprotocol.proto.upayload_pb2 import UPayload, UPayloadFormat
 from protobuf_builders.builder import Builder
 
-from up_client_socket_python.utils.grammar_parsing_utils import get_umessage_type
-
-
-REFERENCE_VAR: str = "reference"
-VALUE_VAR: str = "value"
-LENGTH_VAR: str = "length"
-FORMAT_VAR: str = "format"
+from up_client_socket_python.utils.proto_format_utils import get_upayload_format
+from up_proto_params_constant.upayload_param_names import REFERENCE_VAR, VALUE_VAR, LENGTH_VAR, FORMAT_VAR
 
 class UPayloadBuilder(Builder):
     def __init__(self) -> None:
@@ -47,7 +42,7 @@ class UPayloadBuilder(Builder):
         elif attribute_name == LENGTH_VAR:
             return self.set_length(int(attribute_value))
         elif attribute_name == FORMAT_VAR:
-            return self.set_format(get_umessage_type(attribute_value))
+            return self.set_format(get_upayload_format(attribute_value))
         else:
             raise ValueError(f"{self.__class__.__name__} doesn't handle attribute name {attribute_name}")
     
@@ -61,9 +56,9 @@ class UPayloadBuilder(Builder):
         if self.length is not None:
             proto.length = self.length
         if self.format is not None:
-            print("here")
             proto.format = self.format
         return proto
 
 # print( UPayloadBuilder().set_reference(1).set_value(b"value").set_length(0).set_format(get_umessage_type("UMESSAGE_TYPE_UNSPECIFIED")).build() )
-# print( UPayloadBuilder().set("reference", "1").set("value", "value").set("length", "0").set("format", "UMESSAGE_TYPE_UNSPECIFIED").build() )
+# pay = UPayloadBuilder().set("reference", "1").set("value", "value").set("length", "0").set("format", "UPAYLOAD_FORMAT_UNSPECIFIED").build()
+# print(pay )

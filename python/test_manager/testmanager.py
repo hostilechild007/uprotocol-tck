@@ -27,12 +27,12 @@
 import socket
 import selectors
 import threading
-import logging
 import re
 from collections import defaultdict
-from typing import Dict, List, Union
+from typing import Deque, Dict, List, Union
 from google.protobuf.any_pb2 import Any
 from multimethod import multimethod
+from collections import deque
 
 from uprotocol.proto.uattributes_pb2 import UAttributes, UPriority, UMessageType
 from uprotocol.proto.uri_pb2 import UUri, UAuthority, UEntity, UResource
@@ -57,7 +57,7 @@ from protobuf_builders.upayloadbuilder import UPayloadBuilder
 from protobuf_builders.uresourcebuilder import UResourceBuilder
 from protobuf_builders.uuribuilder import UUriBuilder
 
-from up_client_socket_python.utils.grammar_parsing_utils import get_priority, get_umessage_type
+from up_client_socket_python.utils.proto_format_utils import get_priority, get_umessage_type
 from up_client_socket_python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND, LONG_URI_SERIALIZE, LONG_URI_DESERIALIZE, MICRO_URI_SERIALIZE, MICRO_URI_DESERIALIZE,  LONG_URI_SERIALIZE_RESPONSE, LONG_URI_DESERIALIZE_RESPONSE, MICRO_URI_SERIALIZE_RESPONSE, MICRO_URI_DESERIALIZE_RESPONSE
 
 
@@ -85,18 +85,19 @@ class SocketTestManager():
             port (int): Test Manager's port number
             utransport (TransportLayer): Real message passing medium (sockets)
         """
-
-        self.received_umessage: UMessage = None
+        #saves onreceives based on received order
+        self.sdk_to_received_onreceives: Dict[str, Deque[UMessage] ]= defaultdict(deque)
+        self.sdk_to_received_onreceives_lock = threading.Lock()
 
         # Lowlevel transport implementation (ex: Ulink's UTransport, Zenoh, etc).
         self.utransport: TransportLayer = utransport
 
         # Bc every sdk connection is unqiue, map the socket connection.
         self.sdk_to_test_agent_socket: Dict[str, socket.socket] = defaultdict(socket.socket)
+        self.sdk_to_test_agent_socket_lock = threading.Lock()
+        
         self.sdk_to_received_ustatus: Dict[str, UStatus] = defaultdict(lambda: None)  # maybe thread safe
         self.sdk_to_received_ustatus_lock = threading.Lock()
-
-        self.sdk_to_test_agent_socket_lock = threading.Lock()
         
         self.sdk_to_serializer_translation = defaultdict(lambda: None)
         self.sdk_to_serializer_translation_lock = threading.Lock()
@@ -164,40 +165,7 @@ class SocketTestManager():
                 json_msg: Dict[str, str] = convert_jsonstring_to_json("{" + recv_json_data + "}")
                 self.__handle_recv_json_message(json_msg, ta_socket)
             
-            return
-        
-        
-        ## NOTE NEED todo some checking if sent is the same as the received but translated back -> THEN save 
-        # Map: (sdk, expected response bytes/str/proto)
-        if is_serialized_protobuf(recv_data):
-            # should expect this after sending to TA the string version
-            
-            ta_addr: tuple[str, int] = ta_socket.getpeername()
-            sdk: str = self.sock_addr_to_sdk[ta_addr]
-            
-            uuri: UUri = RpcMapper.unpack_payload(Any(value=recv_data), UUri)
-            self.__save_serializer_translation(sdk, uuri)
-            return
-            
-        if is_serialized_string(recv_data):
-            ta_addr: tuple[str, int] = ta_socket.getpeername()
-            sdk: str = self.sock_addr_to_sdk[ta_addr]
-            
-            uuri_serialized: str = recv_data.decode()
-            self.__save_serializer_translation(sdk, uuri_serialized)
-            return
-        
-        '''if is_micro_uri_serialized(recv_data):
-            print("is_micro_uri_serialized")
-            ta_addr: tuple[str, int] = ta_socket.getpeername()
-            sdk: str = self.sock_addr_to_sdk[ta_addr]
-            
-            self.__save_serializer_translation(sdk, recv_data)
-            return'''
-    
-    def __handle_recv_protobuf(self, received_data: bytes):
-        pass
-    
+            return    
 
     def __handle_recv_json_message(self, json_msg: Dict[str, str], ta_socket: socket.socket):
         """Runtime Handler for different type of incoming json messages
@@ -240,8 +208,9 @@ class SocketTestManager():
             protobuf_serialized_data: bytes = base64_to_protobuf_bytes(umsg_base64)  
             onreceive_umsg: UMessage = RpcMapper.unpack_payload(Any(value=protobuf_serialized_data), UMessage)
 
-            self.received_umessage = onreceive_umsg
-
+            with self.sdk_to_received_onreceives_lock:
+                self.sdk_to_received_onreceives[sdk].append(onreceive_umsg)
+            
             logger.info("---------------------OnReceive response from Test Agent!----------------------------")
             logger.info(onreceive_umsg)
             logger.info("------------------------------------------------------------------------------------")
@@ -263,10 +232,10 @@ class SocketTestManager():
             self.__save_serializer_translation(sdk, uuri_serialized)
             
         elif "action" in json_msg and json_msg["action"] == MICRO_URI_DESERIALIZE_RESPONSE:
-            # uuri_base64: str = json_msg["message"]
-            # protobuf_serialized_data: bytes = base64_to_protobuf_bytes(uuri_base64) 
-            # uuri: UUri = RpcMapper.unpack_payload(Any(value=protobuf_serialized_data), UUri)
-            # self.__save_serializer_translation(sdk, uuri)
+            uuri_base64: str = json_msg["message"]
+            protobuf_serialized_data: bytes = base64_to_protobuf_bytes(uuri_base64) 
+            uuri: UUri = RpcMapper.unpack_payload(Any(value=protobuf_serialized_data), UUri)
+            self.__save_serializer_translation(sdk, uuri)
             pass
         else:
             raise Exception("new client connection didn't initally send sdk name")
@@ -307,6 +276,22 @@ class SocketTestManager():
         if sdk_name == "self":
             return True
         return sdk_name in self.sdk_to_test_agent_socket
+    
+    def get_onreceive(self, sdk_name: str) -> UMessage:
+        """blocking call that returns the earliest received onReceive message
+
+        Returns:
+            UMessage: onReceive protobuf message
+        """
+        
+        # blocks till get an onreceive
+        while len(self.sdk_to_received_onreceives[sdk_name]) == 0:
+            continue
+        
+        with self.sdk_to_received_onreceives_lock:
+            onreceive: UMessage = self.sdk_to_received_onreceives[sdk_name].popleft()
+        
+        return onreceive
         
     def listen_for_client_connections(self):
         """
