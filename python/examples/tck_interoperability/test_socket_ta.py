@@ -29,7 +29,11 @@ import sys
 
 from uprotocol.proto.umessage_pb2 import UMessage
 from uprotocol.proto.ustatus_pb2 import UStatus, UCode
+from uprotocol.proto.upayload_pb2 import UPayload
+from uprotocol.proto.uattributes_pb2 import UAttributes, UMessageType
+from uprotocol.proto.uri_pb2 import UUri
 from uprotocol.transport.ulistener import UListener
+from uprotocol.transport.builder.uattributesbuilder import  UAttributesBuilder
 
 sys.path.append("../")
 
@@ -48,6 +52,21 @@ class SocketUListener(UListener):
         """
         # Connection to Test Manager
         self.test_manager_conn: socket.socket = test_manager_conn
+        
+    
+    def on_receive(self, umsg: UMessage) -> UStatus:
+        # NOTE: when invokemethod sends data to registered TA, then on_receive() and should send below data  
+        # but prolly send as JSON?
+        
+        topic: UUri = umsg.attributes.source 
+        payload: UPayload = umsg.payload
+        attributes: UAttributes = umsg.attributes
+        
+        attributes = UAttributesBuilder(topic, attributes.id, UMessageType.UMESSAGE_TYPE_RESPONSE, attributes.priority).withReqId(attributes.id).build()
+        
+        transport = TransportLayer()
+        msg = UMessage(attributes=attributes, payload=payload)
+        transport.send(msg)
 
     def on_receive(self, umsg: UMessage) -> None:
         """
@@ -58,7 +77,7 @@ class SocketUListener(UListener):
         @param attributes: Transportation attributes.
         @return Returns an Ack every time a message is received and processed.
         """
-        # global on_receive_items
+        #  send JSON OnReceive to Test Manager
         logger.info("Listener onreceived")
 
         json_message = {"action": "onReceive", "message": protobuf_to_base64(umsg)}
@@ -69,6 +88,18 @@ class SocketUListener(UListener):
 
         logger.info("Sending onReceive msg to Test Manager Directly!")
         send_socket_data(self.test_manager_conn, message)
+        
+        # when invoke method is called  w/ a type Request UMessage, we handle and respond w a UMsg directly in SocketUTransport
+        if umsg.attributes.type == UMessageType.UMESSAGE_TYPE_REQUEST:
+            topic: UUri = umsg.attributes.source 
+            payload: UPayload = umsg.payload
+            attributes: UAttributes = umsg.attributes
+            
+            attributes = UAttributesBuilder(topic, attributes.id, UMessageType.UMESSAGE_TYPE_RESPONSE, attributes.priority).withReqId(attributes.id).build()
+            
+            transport = TransportLayer()
+            msg = UMessage(attributes=attributes, payload=payload)
+            transport.send(msg)
 
         return UStatus(code=UCode.OK, message="all good")
 

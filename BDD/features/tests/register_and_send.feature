@@ -130,7 +130,7 @@ Feature: Test Manager and Test Agent messaging to each other directly or with So
         | python  | python |
         | java    | python |
 
-    Scenario Outline: Testing Test Manager's invoke_method() request to Test Agent
+    Scenario Outline: Testing Test Manager's invoke_method() request sent to Test Agent
 
         Given protobuf UEntity "entity" sets parameter "name" equal to string "body.access"  
             And protobuf UResource "resource" sets parameter "name" equal to string "door" 
@@ -153,7 +153,33 @@ Feature: Test Manager and Test Agent messaging to each other directly or with So
         | python  |
         | java    |
 
-    
+    Scenario Outline: Testing Test Agent's invoke_method() subscribes to the responded UMessage topic
+
+        Given protobuf UEntity "entity" sets parameter "name" equal to string "body.access"  
+            And protobuf UResource "resource" sets parameter "name" equal to string "door" 
+            And protobuf UResource "resource" sets parameter "instance" equal to string "front_left" 
+            And protobuf UResource "resource" sets parameter "message" equal to string "Door" 
+            And protobuf UUri "uuri" sets parameter "entity" equal to created protobuf "entity"
+            And protobuf UUri "uuri" sets parameter "resource" equal to created protobuf "resource"
+
+            And protobuf UAttributes "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
+
+            And protobuf UPayload "payload" sets parameter "format" equal to "UPAYLOAD_FORMAT_PROTOBUF"
+            And protobuf UPayload "payload" sets parameter "value" equal to "serialized protobuf data"
+
+        When Test Manager sends "registerlistener" request to Test Agent "<uE1>"
+            And Test Manager sends "invokemethod" request to Test Agent "<uE2>"
+            And Test Manager sends "unregisterlistener" request to Test Agent "<uE2>"
+            # And Test Agent "<uE1>" requests "unregisterlistener" to given protobuf UUri 
+
+        # NEW way of commenting without mentioning "Test manager"
+        # When Test Agent "<uE1>" requests "registerlistener" on given protobuf UUri 
+        #     And Test Agent "<uE2>" requests "invokemethod" on given protobuf UUri 
+        Then Test Manager receives an "OK" status for "unregisterlistener" request 
+
+        Examples: Test Agents
+        | uE1     | uE2    |
+        | python  | python |
     # Scenario Outline: Testing Test Manager's long uri serializer request to Test Agent
 
     #     Given protobuf UEntity "entity" sets parameter "name" equal to string "body.access"  

@@ -33,7 +33,7 @@ import sys
 from google.protobuf.any_pb2 import Any
 from concurrent.futures import Future
 
-from uprotocol.proto.uattributes_pb2 import UAttributes, UMessageType
+from uprotocol.proto.uattributes_pb2 import UAttributes, UPriority, UMessageType
 from uprotocol.proto.upayload_pb2 import UPayload
 from uprotocol.proto.uri_pb2 import UEntity, UUri
 from uprotocol.proto.uuid_pb2 import UUID
@@ -42,7 +42,10 @@ from uprotocol.transport.ulistener import UListener
 from uprotocol.transport.utransport import UTransport
 from uprotocol.proto.umessage_pb2 import UMessage
 from uprotocol.rpc.rpcmapper import RpcMapper
-from python.protobuf_builders.umessagebuilder import UMessageBuilder
+from uprotocol.rpc.rpcclient import RpcClient
+from uprotocol.rpc.calloptions import CallOptions
+from uprotocol.transport.builder.uattributesbuilder import UAttributesBuilder
+from uprotocol.uri.factory.uresource_builder import UResourceBuilder
 
 from python.utils.constants import DISPATCHER_ADDR, BYTES_MSG_LENGTH
 
@@ -51,7 +54,7 @@ sys.path.append("../")
 from python.logger.logger import logger
 
 
-class SocketUTransport(UTransport):
+class SocketUTransport(UTransport, RpcClient):
     def __init__(self) -> None:
         """
         Creates a uEntity with Socket Connection, as well as a map of registered topics.
@@ -88,8 +91,11 @@ class SocketUTransport(UTransport):
                 
                 attributes: UAttributes = umsg.attributes
                 
-                if attributes.type == UMessageType.UMESSAGE_TYPE_PUBLISH or attributes.type == UMessageType.UMESSAGE_TYPE_REQUEST:
+                if attributes.type == UMessageType.UMESSAGE_TYPE_PUBLISH:
                     self._handle_publish_message(umsg)
+                
+                elif attributes.type == UMessageType.UMESSAGE_TYPE_REQUEST:
+                    self._handle_request_message(umsg)
 
                 elif attributes.type == UMessageType.UMESSAGE_TYPE_RESPONSE:
                     self._handle_response_message(umsg)
@@ -109,6 +115,7 @@ class SocketUTransport(UTransport):
             del self.reqid_to_future[request_id_b]
                     
     def _handle_publish_message(self, umsg: UMessage):
+        # NOTE: publish mesgs' attribute.source is the recevied publish topic
         topic_b: bytes = umsg.attributes.source.SerializeToString()
         if topic_b in self.topic_to_listener:
             logger.info(f"{self.__class__.__name__} Handle Topic")
@@ -118,7 +125,17 @@ class SocketUTransport(UTransport):
         else:
             logger.info(f"{self.__class__.__name__} Topic not found in Listener Map, discarding...")
 
+    def _handle_request_message(self, umsg: UMessage):
+        # NOTE: request mesgs' attribute.sink is for subscribed/registered Destination UUri
+        topic_b: bytes = umsg.attributes.sink.SerializeToString()
+        if topic_b in self.topic_to_listener:
+            logger.info(f"{self.__class__.__name__} Handle Topic")
 
+            for listener in self.topic_to_listener[topic_b]:
+                listener.on_receive(umsg)
+        else:
+            logger.info(f"{self.__class__.__name__} Topic not found in Listener Map, discarding...")
+            
     def send(self, umsg: UMessage) -> UStatus:
         """
         Transmits UPayload to the topic using the attributes defined in UTransportAttributes.<br><br>
@@ -170,26 +187,42 @@ class SocketUTransport(UTransport):
                 self.topic_to_listener[topic_serialized].remove(listener)
             else:
                 del self.topic_to_listener[topic_serialized]
+        else:
+            return UStatus(code=UCode.NOT_FOUND, message="UUri topic was not registered initially")
 
         return UStatus(code=UCode.OK, message="OK")
     
-
-    def invoke_method(self, topic: UUri, payload: UPayload, attributes: UAttributes) -> Future:
-        """
-        Support for RPC method invocation.<br><br>
-
-        @param topic: topic of the method to be invoked (i.e. the name of the API we are calling).
-        @param payload:The request message to be sent to the server.
-        @param attributes: metadata for the method invocation (i.e. priority, timeout, etc.)
-        @return: Returns the CompletableFuture with the result or exception.
-        """
+    def invoke_method(self, methodUri: UUri, request_payload: UPayload, options: CallOptions) -> Future:
+        source = UUri(entity=UEntity(name="name1", version_major=1), resource=UResourceBuilder.for_rpc_response())
         
+        # have to create own uAttribute UUID to 
+        attributes = UAttributesBuilder.request(source, methodUri, UPriority.UPRIORITY_CS4, options.get_timeout()).build()
+        print(attributes)
         # Get UAttributes's request id
         request_id: UUID = attributes.id
         response = Future()
         self.reqid_to_future[request_id.SerializeToString()] = response
-
-        umsg: UMessage = UMessageBuilder().set_uuri(topic).set_payload(payload).set_attributes(attributes).build()
-        self.send(umsg)
         
+        umsg = UMessage(payload=request_payload, attributes=attributes)
+        self.send(umsg)
         return response
+    
+    # def invoke_method(self, topic: UUri, payload: UPayload, attributes: UAttributes) -> Future:
+    #     """
+    #     Support for RPC method invocation.<br><br>
+
+    #     @param topic: topic of the method to be invoked (i.e. the name of the API we are calling).
+    #     @param payload:The request message to be sent to the server.
+    #     @param attributes: metadata for the method invocation (i.e. priority, timeout, etc.)
+    #     @return: Returns the CompletableFuture with the result or exception.
+    #     """
+        
+    #     # Get UAttributes's request id
+    #     request_id: UUID = attributes.id
+    #     response = Future()
+    #     self.reqid_to_future[request_id.SerializeToString()] = response
+
+    #     umsg: UMessage = UMessageBuilder().set_uuri(topic).set_payload(payload).set_attributes(attributes).build()
+    #     self.send(umsg)
+        
+    #     return response

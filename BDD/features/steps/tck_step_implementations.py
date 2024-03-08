@@ -37,20 +37,24 @@ from uprotocol.proto.uattributes_pb2 import UAttributes, UPriority, UMessageType
 from uprotocol.proto.umessage_pb2 import UMessage
 from uprotocol.uri.serializer.longuriserializer import LongUriSerializer
 from uprotocol.uri.serializer.microuriserializer import MicroUriSerializer
-from test_manager.testmanager import SocketTestManager
-
-from protobuf_builders.builder import Builder
-from protobuf_builders.uentitybuilder import UEntityBuilder
-from protobuf_builders.uresourcebuilder import UResourceBuilder
-from protobuf_builders.uuribuilder import UUriBuilder
-from protobuf_builders.umessagebuilder import UMessageBuilder
-from protobuf_builders.upayloadbuilder import UPayloadBuilder
 from uprotocol.transport.builder.uattributesbuilder import UAttributesBuilder
 
-from up_client_socket_python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND, LONG_URI_SERIALIZE, LONG_URI_DESERIALIZE, MICRO_URI_SERIALIZE, MICRO_URI_DESERIALIZE
+import sys
+import git
+repo = git.Repo('.', search_parent_directories=True)
+sys.path.append(repo.working_tree_dir)
 
-from getters.umessagegetter import UMessageGetter
-from getters.upayloadgetter import UPayloadGetter
+from python.protobuf_builders.builder import Builder
+from python.protobuf_builders.uentitybuilder import UEntityBuilder
+from python.protobuf_builders.uresourcebuilder import UResourceBuilder
+from python.protobuf_builders.uuribuilder import UUriBuilder
+from python.protobuf_builders.umessagebuilder import UMessageBuilder
+from python.protobuf_builders.upayloadbuilder import UPayloadBuilder
+
+from python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND, LONG_URI_SERIALIZE, LONG_URI_DESERIALIZE, MICRO_URI_SERIALIZE, MICRO_URI_DESERIALIZE
+from python.test_manager.testmanager import SocketTestManager
+from python.getters.umessagegetter import UMessageGetter
+from python.getters.upayloadgetter import UPayloadGetter
 
 @given(u'“{sdk_name}” creates data for "{command}"')
 @when(u'“{sdk_name}” creates data for "{command}"')
@@ -195,7 +199,7 @@ def initialize_protobuf(context, payload: str, param: str, value: str):
 def tm_sends_request(context, command: str, sdk_name: str):
     command = command.lower().strip()
     
-    if command == REGISTER_LISTENER_COMMAND:
+    if command in [REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND]:
         uuri_builder: UUriBuilder = context.initialized_data["uuri_builder"]
         uuri: UUri = uuri_builder.build()
         

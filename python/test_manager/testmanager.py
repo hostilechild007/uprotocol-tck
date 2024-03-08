@@ -49,11 +49,9 @@ from uprotocol.uri.serializer.longuriserializer import LongUriSerializer
 from uprotocol.uri.serializer.microuriserializer import MicroUriSerializer
 from uprotocol.uri.serializer.uriserializer import UriSerializer
 
-from up_client_socket_python.transport_layer import TransportLayer
 from up_client_socket_python.utils.socket_message_processing_utils import receive_socket_data, convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, protobuf_to_base64, base64_to_protobuf_bytes, send_socket_data, is_close_socket_signal, is_serialized_protobuf, is_json_message, is_serialized_string
 from protobuf_builders.uauthoritybuilder import UAuthorityBuilder
 from protobuf_builders.uentitybuilder import UEntityBuilder
-from protobuf_builders.upayloadbuilder import UPayloadBuilder
 from protobuf_builders.uresourcebuilder import UResourceBuilder
 from protobuf_builders.uuribuilder import UUriBuilder
 

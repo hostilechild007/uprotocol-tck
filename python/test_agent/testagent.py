@@ -29,6 +29,7 @@ import sys
 import threading
 from concurrent.futures import Future
 from typing import Dict
+import time
 
 from google.protobuf.any_pb2 import Any
 from multipledispatch import dispatch
@@ -40,6 +41,7 @@ from uprotocol.proto.ustatus_pb2 import UCode
 from uprotocol.proto.ustatus_pb2 import UStatus
 from uprotocol.rpc.rpcmapper import RpcMapper
 from uprotocol.transport.ulistener import UListener
+from uprotocol.rpc.calloptions import CallOptions
 
 sys.path.append("../")
 
@@ -112,22 +114,39 @@ class SocketTestAgent:
         logger.info("received_proto: ")
         logger.info(received_proto)
         
-        umesg_getter = UMessageGetter(received_proto)
-
+        source: UUri = received_proto.attributes.source
+        payload: UPayload = received_proto.payload
         status: UStatus = None
         if action == SEND_COMMAND:
             status = self.utransport.send(received_proto)
         elif action == REGISTER_LISTENER_COMMAND:
-            status = self.utransport.register_listener(umesg_getter.get_source(), listener)
+            status = self.utransport.register_listener(source, listener)
         elif action == UNREGISTER_LISTENER_COMMAND:
-            status = self.utransport.unregister_listener(umesg_getter.get_source(), listener)
+            status = self.utransport.unregister_listener(received_proto.attributes.source, listener)
         elif action == INVOKE_METHOD_COMMAND:
-            future_umsg: Future = self.utransport.invoke_method(umesg_getter.get_source(), umesg_getter.get_payload(), umesg_getter.get_attributes())
+            future_umsg: Future = self.utransport.invoke_method(source, payload, CallOptions())
             
             # need to have service that sends data back above
             # currently the Test Agent is the Client_door, and can act as service
             status = UStatus(code=UCode.OK, message="OK") 
         self.send(status)
+        
+        if action == INVOKE_METHOD_COMMAND:
+            # wait for response, and if havent gotten response in 10 sec then continue
+            
+            #when got response, sub/reg 
+            logger.info("waiting for future umsg")
+            start_time = time.time()
+            wait_time_secs = 10.0
+            while not future_umsg.done() and time.time() - start_time < wait_time_secs:
+                continue
+            
+            if future_umsg.done():
+                umsg: UMessage = future_umsg.result()
+                self.utransport.register_listener(umsg.attributes.source, listener)
+                logger.info("----invoke_method registered----")
+            else:
+                logger.warn("----invoke_method Failed to register----")
             
 
     @dispatch(UUri, UPayload, UAttributes)

@@ -34,6 +34,7 @@ from uprotocol.proto.uri_pb2 import UUri
 from uprotocol.proto.ustatus_pb2 import UStatus
 from uprotocol.proto.umessage_pb2 import UMessage
 from uprotocol.transport.ulistener import UListener
+from uprotocol.rpc.calloptions import CallOptions
 
 sys.path.append("../")
 
@@ -88,5 +89,5 @@ class TransportLayer:
     def unregister_listener(self, topic: UUri, listener: UListener) -> UStatus:
         return self.__instance.unregister_listener(topic, listener)
     
-    def invoke_method(self, topic: UUri, payload: UPayload, attributes: UAttributes) -> Future:
-        return self.__instance.invoke_method(topic, payload, attributes)
+    def invoke_method(self, topic: UUri, payload: UPayload, options: CallOptions) -> Future:
+        return self.__instance.invoke_method(topic, payload, options)

@@ -29,8 +29,11 @@ import sys
 from threading import Lock
 from threading import Thread
 from typing import Callable, Dict, Tuple
-
+import git
 sys.path.append("../")
+
+repo = git.Repo('.', search_parent_directories=True)
+sys.path.append(repo.working_tree_dir)
 
 from python.logger.logger import logger
 
