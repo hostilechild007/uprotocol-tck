@@ -22,20 +22,28 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.eclipse.uprotocol.tck.testagent;
+package org.tck.testagent;
 
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.eclipse.uprotocol.cloudevent.serialize.Base64ProtobufSerializer;
-import org.eclipse.uprotocol.tck.up_client_socket_java.SocketUListener;
-import org.eclipse.uprotocol.tck.up_client_socket_java.SocketUTransport;
 import org.eclipse.uprotocol.transport.UListener;
+import org.eclipse.uprotocol.uri.serializer.LongUriSerializer;
 import org.eclipse.uprotocol.v1.*;
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
+import org.tck.serializer.JsonMessageSerializer;
+import org.tck.serializer.JsonMessageSerializerSelector;
+import org.tck.up_client_socket_java.SocketUListener;
+import org.tck.up_client_socket_java.SocketUTransport;
+import org.tck.utils.Constants;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
 
 public class TestAgent {
@@ -43,6 +51,7 @@ public class TestAgent {
     private SocketUTransport socketUTransport;
     private JSONObject jsonObject;
     private Socket clientSocket;
+    OutputStream clientOutputStream;
 
     public TestAgent(Socket socket, SocketUTransport utransport, SocketUListener listener) {
         try {
@@ -75,52 +84,87 @@ public class TestAgent {
             while (true) {
                 byte[] recvData = new byte[msgLen];
                 int bytesRead = clientInputStream.read(recvData);
+
                 if (bytesRead > 0) {
                     String jsonStr = new String(recvData, 0, bytesRead, StandardCharsets.UTF_8);
-                    logger.info("jsonMsg from TM: " + jsonStr);
-
-                    jsonObject = new JSONObject(jsonStr);
-                    String action = jsonObject.getString("action");
-                    logger.info("action ->" + action);
-                    String message = jsonObject.getString("message");
-                    byte[] protobuf_bytes = base64ToProtobufBytes(message);
-                    logger.info("message ->" + protobuf_bytes);
-                    UMessage umsg = UMessage.parseFrom(protobuf_bytes);
-                    logger.info("UMessage: "+umsg);
-                    UAttributes attributes = umsg.getAttributes();
-                    UStatus status = null;
-                    switch (action) {
-                        case "send":
-                            status = socketUTransport.send(umsg);
-                            break;
-                        case "registerlistener":
-                            status = socketUTransport.registerListener(attributes.getSource(), listener);
-                            break;
-                        case "unregisterlistener":
-                            status = socketUTransport.unregisterListener(attributes.getSource(), listener);
-                            break;
+                    logger.info("jsonString from TM: " + jsonStr);
+                    if (isValidJSON(jsonStr)) {
+                        handle_json_message(jsonStr, listener);
                     }
-                    this.send(status);
-                }
-                else {
-                	clientSocket.close();
-                    logger.info("Closed Test Agent Socket Client");
+                } else {
+                    clientSocket.close();
+                    logger.info("Closing TA Client Socket");
                     return;
                 }
             }
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
-    public void send(UMessage umsg) {
-        byte[] base64umsg = umsg.toByteArray();
+    public void handle_json_message(String jsonStr, UListener listener) throws InvalidProtocolBufferException {
+        jsonObject = new JSONObject(jsonStr);
+        String action = jsonObject.getString("action");
+        logger.info("action ->" + action);
+        if (Constants.COMMANDS.contains(action)) {
+            this.handleCommandJson(jsonObject, listener);
+        } else if (Constants.SERIALIZERS.contains(action)) {
+            this.handleSerializeJson(jsonObject);
+        }
+    }
+
+    public void handleSerializeJson(JSONObject jsonObj) throws InvalidProtocolBufferException {
+        String action = jsonObj.getString("action");
+        JsonMessageSerializer jsonMessageSerializer = new JsonMessageSerializerSelector().select(action);
+        JSONObject response = jsonMessageSerializer.execute(jsonObj);
+        sendToTM(response);
+    }
+
+    public void handleCommandJson(JSONObject jsonObj, UListener listener) throws InvalidProtocolBufferException {
+        String action = jsonObj.getString("action");
+        String message = jsonObj.getString("message");
+        byte[] protobuf_bytes = base64ToProtobufBytes(message);
+        logger.info("message ->" + protobuf_bytes);
+        UMessage umsg = UMessage.parseFrom(protobuf_bytes);
+        logger.info("UMessage: " + umsg);
+        UAttributes attributes = umsg.getAttributes();
+        UStatus status = null;
+        switch (action) {
+            case "send":
+                status = socketUTransport.send(umsg);
+                break;
+            case "registerlistener":
+                status = socketUTransport.registerListener(attributes.getSource(), listener);
+                break;
+            case "unregisterlistener":
+                status = socketUTransport.unregisterListener(attributes.getSource(), listener);
+                break;
+            case "invokemethod":
+                CompletableFuture<UMessage> futureMsg = socketUTransport.invokeMethod(umsg);
+                System.out.println("Future message -> " + futureMsg);
+                status = UStatus.newBuilder()
+                        .setCode(UCode.OK)
+                        .setMessage("OK")
+                        .build();
+                break;
+        }
+        this.send(status);
+    }
+
+    /*
+    public void send(UUri topic, UPayload payload, UAttributes attributes) {
+    if (topic != null) {
+    //attributes.getSource()
+    }
+     UMessage umessage = UMessage(attributes,payload);
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("action", "send");
-        jsonObject.put("message", Base64ProtobufSerializer.deserialize(base64umsg));
+        jsonObject.put("message", Base64ProtobufSerializer.deserialize(umessage));
         sendToTM(jsonObject);
 
-    }
+    }*/
 
     public void send(UStatus status) {
         JSONObject json = new JSONObject();
@@ -131,7 +175,7 @@ public class TestAgent {
 
     void sendToTM(JSONObject jsonObj) {
         try {
-            OutputStream clientOutputStream = clientSocket.getOutputStream();
+            clientOutputStream = clientSocket.getOutputStream();
             String jsonString = jsonObj.toString();
             byte[] messageBytes = jsonString.getBytes(StandardCharsets.UTF_8);
             clientOutputStream.write(messageBytes);
@@ -141,21 +185,27 @@ public class TestAgent {
         }
     }
 
-    public void registerListener(UUri topic, UListener listener) {
+    private boolean isValidJSON(String jsonStr) throws Exception {
         try {
-            socketUTransport.registerListener(topic, listener);
-            // Additional logic if needed
-        } catch (Exception e) {
-            e.printStackTrace();
+            new JSONObject(jsonStr);
+        } catch (JSONException ex) {
+            try {
+                logger.info("exception: " + ex);
+                new JSONArray(jsonStr);
+            } catch (JSONException ex1) {
+                logger.info("exception: " + ex1);
+                throw new Exception("Invalid JSON.");
+            }
         }
+        return true;
     }
 
-    public void unregisterListener(UUri topic, UListener listener) {
-        try {
-            socketUTransport.unregisterListener(topic, listener);
-            // Additional logic to unregister listener based on clientPort
-        } catch (Exception e) {
-            e.printStackTrace();
+    private boolean isSerializedProtobuf(byte[] byteData) throws InvalidProtocolBufferException {
+        UUri topic = UUri.parseFrom(byteData);
+        if (topic != null) {
+            return true;
+        } else {
+            return false;
         }
     }
 }

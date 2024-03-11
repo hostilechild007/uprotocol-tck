@@ -22,7 +22,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.eclipse.uprotocol.tck.up_client_socket_java;
+package org.tck.up_client_socket_java;
+
+import org.eclipse.uprotocol.transport.UListener;
+import org.eclipse.uprotocol.transport.UTransport;
+import org.eclipse.uprotocol.v1.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,43 +34,49 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
-
-import org.eclipse.uprotocol.transport.UListener;
-import org.eclipse.uprotocol.transport.UTransport;
-import org.eclipse.uprotocol.v1.*;
 
 public class SocketUTransport implements UTransport {
     private static final Logger logger = Logger.getLogger(SocketUTransport.class.getName());
     private final Socket socket;
     private final Map<UUri, ArrayList<UListener>> topicToListener = new ConcurrentHashMap<>();
+    Map<UUID, CompletableFuture<UMessage>> reqidToFuture = new HashMap<>();
 
     public SocketUTransport(String hostIp, int port) throws IOException {
         socket = new Socket(hostIp, port);
-        Thread thread = new Thread(this::listen);
+        Thread thread = new Thread(() -> {
+            try {
+                listen();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
         thread.start();
     }
 
-    private void listen() {
+    private void listen() throws IOException {
         try {
             while (true) {
                 InputStream inputStream = socket.getInputStream();
                 byte[] buffer = new byte[32767];
                 int readSize = inputStream.read(buffer);
-                logger.info("Message length: "+readSize);
+                logger.info("Message length: " + readSize);
 
-                UMessage umsg = UMessage.parseFrom(Arrays.copyOfRange(buffer, 0, readSize) );
-                logger.info("Received uMessage...");
-
+                UMessage umsg = UMessage.parseFrom(Arrays.copyOfRange(buffer, 0, readSize));
+                logger.info("Received uMessage: " + umsg);
+                
+                // if registered to topic, then listeners should receive this incoming UMessage 
                 UUri topic = umsg.getAttributes().getSource();
-                if (topicToListener.containsKey(topic)) {
-                	for (UListener listener : topicToListener.get(topic)) {
-                		listener.onReceive(umsg);
-                	}
-                } else {
-                    logger.info("Topic not found in Listener Map, discarding...");
+                UAttributes attributes = umsg.getAttributes();
+
+                if (attributes.getType() == UMessageType.UMESSAGE_TYPE_PUBLISH || attributes.getType() == UMessageType.UMESSAGE_TYPE_REQUEST) {
+                    this.handlePublishMessage(topic, umsg);
+                } else if (attributes.getType() == UMessageType.UMESSAGE_TYPE_RESPONSE) {
+                    this.handleResponseMessage(umsg);
                 }
             }
         } catch (IOException e) {
@@ -75,6 +85,27 @@ public class SocketUTransport implements UTransport {
             } catch (IOException ioException) {
                 ioException.printStackTrace();
             }
+        }
+    }
+
+    private void handlePublishMessage(UUri topic, UMessage umsg) {
+
+        if (topicToListener.containsKey(topic)) {
+            for (UListener listener : topicToListener.get(topic)) {
+                Logger.getLogger(" Handle Topic");
+                listener.onReceive(umsg);
+            }
+        } else {
+            Logger.getLogger(" Topic not found in Listener Map, discarding...");
+        }
+    }
+
+    private void handleResponseMessage(UMessage umsg) {
+        UUID requestId = umsg.getAttributes().getReqid();
+        if (this.reqidToFuture.containsKey(requestId)) {
+            CompletableFuture<UMessage> responseFuture = this.reqidToFuture.get(requestId);
+            responseFuture.complete(umsg);
+            this.reqidToFuture.remove(requestId);
         }
     }
 
@@ -94,7 +125,6 @@ public class SocketUTransport implements UTransport {
                     .setMessage("INTERNAL ERROR: IOException sending UMessage")
                     .build();
         }
-
         return UStatus.newBuilder()
                 .setCode(UCode.OK)
                 .setMessage("OK")
@@ -132,5 +162,12 @@ public class SocketUTransport implements UTransport {
                 .setMessage("OK")
                 .build();
     }
-    
+
+    public CompletableFuture<UMessage> invokeMethod(UMessage umsg) {
+        UUID requestId = umsg.getAttributes().getReqid();
+        CompletableFuture<UMessage> response = new CompletableFuture<>();
+        this.reqidToFuture.put(requestId, response);
+        this.send(umsg);
+        return response;
+    }
 }
