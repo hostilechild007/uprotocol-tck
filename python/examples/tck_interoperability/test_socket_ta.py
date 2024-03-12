@@ -40,7 +40,7 @@ sys.path.append("../")
 from python.test_agent.transport_layer import TransportLayer
 from python.test_agent.testagent import SocketTestAgent
 from python.utils.socket_message_processing_utils import convert_json_to_jsonstring, \
-    convert_str_to_bytes, protobuf_to_base64, send_socket_data
+    convert_str_to_bytes, protobuf_to_base64, send_socket_data, create_json_message
 from python.utils.constants import TEST_MANAGER_ADDR
 from python.logger.logger import logger
 
@@ -52,21 +52,6 @@ class SocketUListener(UListener):
         """
         # Connection to Test Manager
         self.test_manager_conn: socket.socket = test_manager_conn
-        
-    
-    def on_receive(self, umsg: UMessage) -> UStatus:
-        # NOTE: when invokemethod sends data to registered TA, then on_receive() and should send below data  
-        # but prolly send as JSON?
-        
-        topic: UUri = umsg.attributes.source 
-        payload: UPayload = umsg.payload
-        attributes: UAttributes = umsg.attributes
-        
-        attributes = UAttributesBuilder(topic, attributes.id, UMessageType.UMESSAGE_TYPE_RESPONSE, attributes.priority).withReqId(attributes.id).build()
-        
-        transport = TransportLayer()
-        msg = UMessage(attributes=attributes, payload=payload)
-        transport.send(msg)
 
     def on_receive(self, umsg: UMessage) -> None:
         """
@@ -80,7 +65,7 @@ class SocketUListener(UListener):
         #  send JSON OnReceive to Test Manager
         logger.info("Listener onreceived")
 
-        json_message = {"action": "onReceive", "message": protobuf_to_base64(umsg)}
+        json_message = create_json_message("onReceive", protobuf_to_base64(umsg))
 
         json_message_str: str = convert_json_to_jsonstring(json_message)
 
@@ -100,8 +85,6 @@ class SocketUListener(UListener):
             transport = TransportLayer()
             msg = UMessage(attributes=attributes, payload=payload)
             transport.send(msg)
-
-        return UStatus(code=UCode.OK, message="all good")
 
 
 if __name__ == "__main__":

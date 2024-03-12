@@ -30,8 +30,14 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 
 import org.eclipse.uprotocol.cloudevent.serialize.Base64ProtobufSerializer;
+import org.eclipse.uprotocol.tck.testagent.TransportLayer;
 import org.eclipse.uprotocol.transport.UListener;
-import org.eclipse.uprotocol.v1.*;
+import org.eclipse.uprotocol.v1.UMessageType;
+import org.eclipse.uprotocol.v1.UPayload;
+import org.eclipse.uprotocol.v1.UUri;
+import org.eclipse.uprotocol.v1.UAttributes;
+import org.eclipse.uprotocol.v1.UMessage;
+import org.eclipse.uprotocol.transport.builder.UAttributesBuilder;
 import org.json.JSONObject;
 
 public class SocketUListener implements UListener {
@@ -65,6 +71,19 @@ public class SocketUListener implements UListener {
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
+        }
+
+        if (umsg.getAttributes().getType() == UMessageType.UMESSAGE_TYPE_REQUEST){
+            UUri topic = umsg.getAttributes().getSource();
+            UPayload payload = umsg.getPayload();
+            UAttributes attributes = umsg.getAttributes();
+            
+            attributes = UAttributesBuilder.response(topic, topic, attributes.getPriority(), attributes.getId()).build();
+
+            UMessage response_umsg = UMessage.newBuilder().setAttributes(attributes).setPayload(payload).build();
+
+            TransportLayer transporter = TransportLayer.getInstance();
+            transporter.send(response_umsg);
         }
     }
 }

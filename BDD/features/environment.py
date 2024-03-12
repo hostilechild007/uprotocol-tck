@@ -28,12 +28,14 @@ import subprocess
 import sys
 import time
 from threading import Thread
-from typing import List
+from typing import Dict, List
 import os
 import git
 
 from behave.runner import Context
 from utils import loggerutils
+
+from uprotocol.proto.ustatus_pb2 import UStatus
 
 sys.path.append("../")
 
@@ -107,6 +109,10 @@ def before_all(context):
     
     # create global json data storage 
     context.initialized_data = {}
+    
+    # create global received response status storage
+    sdk_to_status: Dict[str, UStatus] = {}
+    context.sdk_to_status = sdk_to_status
 
     command = create_command("/python/dispatcher/dispatcher.py")
     process: subprocess.Popen = create_subprocess(command)

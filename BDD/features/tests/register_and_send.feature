@@ -24,7 +24,7 @@
 #
 # -------------------------------------------------------------------------
 
-Feature: Test Manager and Test Agent messaging to each other directly or with SocketUTransport and Dispatcher
+Feature: Test Agents testing messaging to each other and internal UTransport with send, registerlistener, and invokemethod
 
 #NOTE: A behavior scenario specification should focus on one individual behavior
     
@@ -59,43 +59,44 @@ Feature: Test Manager and Test Agent messaging to each other directly or with So
         | java    | python |
     
     
-    Scenario Outline: Test Manager's registerlistener() request to Test Agent
+    Scenario Outline: Test Agent's registerlistener() on given UUri
         #New Given: set data first for (UUri, UPayload, UAttributes)
         # should have separate scenarios checking status for registerlistener() and send()
 
         # Note: each step should be DESCRIPTIVE as POSSIBLE!
-        Given protobuf UEntity "entity" sets parameter "name" equal to string "body.access"  
-            And protobuf UResource "resource" sets parameter "name" equal to string "door" 
-            And protobuf UResource "resource" sets parameter "instance" equal to string "front_left" 
-            And protobuf UResource "resource" sets parameter "message" equal to string "Door" 
+        Given Test Agent sets UEntity "entity" field "name" equal to string "body.access"  
+            And Test Agent sets UResource "resource" field "name" equal to string "door" 
+            And Test Agent sets UResource "resource" field "instance" equal to string "front_left" 
+            And Test Agent sets UResource "resource" field "message" equal to string "Door" 
 
-            And protobuf UUri "uuri" sets parameter "entity" equal to created protobuf "entity"
-            And protobuf UUri "uuri" sets parameter "resource" equal to created protobuf "resource"
+            And Test Agent sets UUri "uuri" field "entity" equal to created protobuf "entity"
+            And Test Agent sets UUri "uuri" field "resource" equal to created protobuf "resource"
+            
         
-        When Test Manager sends "registerlistener" request to Test Agent "<uE1>"
-        Then Test Manager receives an "OK" status for "registerlistener" request
+        When Test Agent "<uE1>" executes "registerlistener" on given UUri
+        Then Test Agent "<uE1>" receives an "OK" status for latest execute
 
         Examples: 
         | uE1     |
         | python  |
         | java    |
 
-    Scenario Outline: Testing Test Manager's send() request to Test Agent
+    Scenario Outline: Testing Test Manager's send() on given UUri
 
-        Given protobuf UEntity "entity" sets parameter "name" equal to string "body.access"  
-            And protobuf UResource "resource" sets parameter "name" equal to string "door" 
-            And protobuf UResource "resource" sets parameter "instance" equal to string "front_left" 
-            And protobuf UResource "resource" sets parameter "message" equal to string "Door" 
-            And protobuf UUri "uuri" sets parameter "entity" equal to created protobuf "entity"
-            And protobuf UUri "uuri" sets parameter "resource" equal to created protobuf "resource"
+        Given Test Agent sets UEntity "entity" field "name" equal to string "body.access"  
+            And Test Agent sets UResource "resource" field "name" equal to string "door" 
+            And Test Agent sets UResource "resource" field "instance" equal to string "front_left" 
+            And Test Agent sets UResource "resource" field "message" equal to string "Door" 
+            And Test Agent sets UUri "uuri" field "entity" equal to created protobuf "entity"
+            And Test Agent sets UUri "uuri" field "resource" equal to created protobuf "resource"
 
-            And protobuf UAttributes "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
+            And Test Agent sets UAttributes "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
 
-            And protobuf UPayload "payload" sets parameter "format" equal to "UPAYLOAD_FORMAT_PROTOBUF"
-            And protobuf UPayload "payload" sets parameter "value" equal to "serialized protobuf data"
+            And Test Agent sets UPayload "payload" field "format" equal to "UPAYLOAD_FORMAT_PROTOBUF"
+            And Test Agent sets UPayload "payload" field "value" equal to "serialized protobuf data"
         
-        When Test Manager sends "send" request to Test Agent "<uE1>"
-        Then Test Manager receives an "OK" status for "send" request
+        When Test Agent "<uE1>" executes "send" on given UUri
+        Then Test Agent "<uE1>" receives an "OK" status for latest execute
 
 
         Examples: 
@@ -106,22 +107,22 @@ Feature: Test Manager and Test Agent messaging to each other directly or with So
 
     Scenario Outline: Testing if registered Test Agent listener will receive sent message via SocketUTransport
 
-        Given protobuf UEntity "entity" sets parameter "name" equal to string "body.access"  
-            And protobuf UResource "resource" sets parameter "name" equal to string "door" 
-            And protobuf UResource "resource" sets parameter "instance" equal to string "front_left" 
-            And protobuf UResource "resource" sets parameter "message" equal to string "Door" 
-            And protobuf UUri "uuri" sets parameter "entity" equal to created protobuf "entity"
-            And protobuf UUri "uuri" sets parameter "resource" equal to created protobuf "resource"
+        Given Test Agent sets UEntity "entity" field "name" equal to string "body.access"  
+            And Test Agent sets UResource "resource" field "name" equal to string "door" 
+            And Test Agent sets UResource "resource" field "instance" equal to string "front_left" 
+            And Test Agent sets UResource "resource" field "message" equal to string "Door" 
+            And Test Agent sets UUri "uuri" field "entity" equal to created protobuf "entity"
+            And Test Agent sets UUri "uuri" field "resource" equal to created protobuf "resource"
 
-            And protobuf UAttributes "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
+            And Test Agent sets UAttributes "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
 
-            And protobuf UPayload "payload" sets parameter "format" equal to "UPAYLOAD_FORMAT_PROTOBUF"
-            And protobuf UPayload "payload" sets parameter "value" equal to "serialized protobuf data"
+            And Test Agent sets UPayload "payload" field "format" equal to "UPAYLOAD_FORMAT_PROTOBUF"
+            And Test Agent sets UPayload "payload" field "value" equal to "serialized protobuf data"
         
-        When Test Manager sends "registerlistener" request to Test Agent "<uE1>"
-            And Test Manager sends "send" request to Test Agent "<uE2>"
+        When Test Agent "<uE1>" executes "registerlistener" on given UUri
+            And Test Agent "<uE2>" executes "send" on given UUri
 
-        Then Test Manager receives OnReceive UMessage from "<uE1>" Test Agent with parameter UPayload "payload" with parameter "value" as "serialized protobuf data"
+        Then Test Agent "<uE1>" builds OnReceive UMessage with parameter UPayload "payload" with parameter "value" as "serialized protobuf data"
 
 
         Examples: Test Agents
@@ -132,21 +133,21 @@ Feature: Test Manager and Test Agent messaging to each other directly or with So
 
     Scenario Outline: Testing Test Manager's invoke_method() request sent to Test Agent
 
-        Given protobuf UEntity "entity" sets parameter "name" equal to string "body.access"  
-            And protobuf UResource "resource" sets parameter "name" equal to string "door" 
-            And protobuf UResource "resource" sets parameter "instance" equal to string "front_left" 
-            And protobuf UResource "resource" sets parameter "message" equal to string "Door" 
-            And protobuf UUri "uuri" sets parameter "entity" equal to created protobuf "entity"
-            And protobuf UUri "uuri" sets parameter "resource" equal to created protobuf "resource"
+        Given Test Agent sets UEntity "entity" field "name" equal to string "body.access"  
+            And Test Agent sets UResource "resource" field "name" equal to string "door" 
+            And Test Agent sets UResource "resource" field "instance" equal to string "front_left" 
+            And Test Agent sets UResource "resource" field "message" equal to string "Door" 
+            And Test Agent sets UUri "uuri" field "entity" equal to created protobuf "entity"
+            And Test Agent sets UUri "uuri" field "resource" equal to created protobuf "resource"
 
-            And protobuf UAttributes "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
+            And Test Agent sets UAttributes "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
 
-            And protobuf UPayload "payload" sets parameter "format" equal to "UPAYLOAD_FORMAT_PROTOBUF"
-            And protobuf UPayload "payload" sets parameter "value" equal to "serialized protobuf data"
+            And Test Agent sets UPayload "payload" field "format" equal to "UPAYLOAD_FORMAT_PROTOBUF"
+            And Test Agent sets UPayload "payload" field "value" equal to "serialized protobuf data"
         
-        When Test Manager sends "invokemethod" request to Test Agent "<uE1>"
+        When Test Agent "<uE1>" executes "invokemethod" on given UUri
 
-        Then Test Manager receives an "OK" status for "invokemethod" request
+        Then Test Agent "<uE1>" receives an "OK" status for latest execute
 
         Examples: 
         | uE1     |
@@ -155,41 +156,41 @@ Feature: Test Manager and Test Agent messaging to each other directly or with So
 
     Scenario Outline: Testing Test Agent's invoke_method() subscribes to the responded UMessage topic
 
-        Given protobuf UEntity "entity" sets parameter "name" equal to string "body.access"  
-            And protobuf UResource "resource" sets parameter "name" equal to string "door" 
-            And protobuf UResource "resource" sets parameter "instance" equal to string "front_left" 
-            And protobuf UResource "resource" sets parameter "message" equal to string "Door" 
-            And protobuf UUri "uuri" sets parameter "entity" equal to created protobuf "entity"
-            And protobuf UUri "uuri" sets parameter "resource" equal to created protobuf "resource"
+        Given Test Agent sets UEntity "entity" field "name" equal to string "body.access"  
+            And Test Agent sets UResource "resource" field "name" equal to string "door" 
+            And Test Agent sets UResource "resource" field "instance" equal to string "front_left" 
+            And Test Agent sets UResource "resource" field "message" equal to string "Door" 
+            And Test Agent sets UUri "uuri" field "entity" equal to created protobuf "entity"
+            And Test Agent sets UUri "uuri" field "resource" equal to created protobuf "resource"
 
-            And protobuf UAttributes "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
+            And Test Agent sets UAttributes "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
 
-            And protobuf UPayload "payload" sets parameter "format" equal to "UPAYLOAD_FORMAT_PROTOBUF"
-            And protobuf UPayload "payload" sets parameter "value" equal to "serialized protobuf data"
+            And Test Agent sets UPayload "payload" field "format" equal to "UPAYLOAD_FORMAT_PROTOBUF"
+            And Test Agent sets UPayload "payload" field "value" equal to "serialized protobuf data"
 
-        When Test Manager sends "registerlistener" request to Test Agent "<uE1>"
-            And Test Manager sends "invokemethod" request to Test Agent "<uE2>"
-            And Test Manager sends "unregisterlistener" request to Test Agent "<uE2>"
-            # And Test Agent "<uE1>" requests "unregisterlistener" to given protobuf UUri 
+        When Test Agent "<uE1>" executes "registerlistener" on given UUri
+            And Test Agent "<uE2>" executes "invokemethod" on given UUri
+            And Test Agent "<uE2>" executes "unregisterlistener" on given UUri
 
-        # NEW way of commenting without mentioning "Test manager"
-        # When Test Agent "<uE1>" requests "registerlistener" on given protobuf UUri 
-        #     And Test Agent "<uE2>" requests "invokemethod" on given protobuf UUri 
-        Then Test Manager receives an "OK" status for "unregisterlistener" request 
+        # NEW way of commenting without mentioning "Test manager": ...
+        # Given protobuf UEntity "entity" sets field "name" equal to string "body.access"  
+        # When Test Agent "<uE1>" executes "registerlistener" on given UUri 
+        #     And Test Agent "<uE2>" executes "invokemethod" on given UUri 
+        Then Test Agent "<uE2>" receives an "OK" status for latest execute
 
         Examples: Test Agents
         | uE1     | uE2    |
         | python  | python |
-    # Scenario Outline: Testing Test Manager's long uri serializer request to Test Agent
+    # Scenario Outline: Testing Test Manager's long uri serializer on given UUri
 
-    #     Given protobuf UEntity "entity" sets parameter "name" equal to string "body.access"  
-    #         And protobuf UResource "resource" sets parameter "name" equal to string "door" 
-    #         And protobuf UResource "resource" sets parameter "instance" equal to string "front_left" 
-    #         And protobuf UResource "resource" sets parameter "message" equal to string "Door" 
-    #         And protobuf UUri "uuri" sets parameter "entity" equal to created protobuf "entity"
-    #         And protobuf UUri "uuri" sets parameter "resource" equal to created protobuf "resource"
+    #     Given protobuf UEntity "entity" field "name" equal to string "body.access"  
+    #         And protobuf UResource "resource" field "name" equal to string "door" 
+    #         And protobuf UResource "resource" field "instance" equal to string "front_left" 
+    #         And protobuf UResource "resource" field "message" equal to string "Door" 
+    #         And protobuf UUri "uuri" field "entity" equal to created protobuf "entity"
+    #         And protobuf UUri "uuri" field "resource" equal to created protobuf "resource"
         
-    #     When Test Manager sends "longuriserialize" uri serializer request to Test Agent "<uE1>"
+    #     When Test Agent "<uE1>" executes "longuriserialize" uri serializer on given UUri "<uE1>"
 
     #     Then Test Manager receives a string "/body.access//door.front_left#Door"
 
@@ -198,11 +199,11 @@ Feature: Test Manager and Test Agent messaging to each other directly or with So
     #     | python  |
     
 
-    # Scenario Outline: Testing Test Manager's long uri deserializer request to Test Agent
+    # Scenario Outline: Testing Test Manager's long uri deserializer on given UUri
 
     #     Given serialized UUri string "/body.access//door.front_left#Door"
         
-    #     When Test Manager sends "longurideserialize" uri serializer request to Test Agent "<uE1>"
+    #     When Test Agent "<uE1>" executes "longurideserialize" uri serializer on given UUri "<uE1>"
 
     #     Then Test Manager receives a protobuf UUri "/body.access//door.front_left#Door"
 

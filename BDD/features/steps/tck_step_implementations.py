@@ -147,15 +147,17 @@ def step_impl(context, sdk_name: str):
     # context.logger.info("YOOOO SERVER cLOSED")
     pass
 
-@given('protobuf UEntity "{entity}" sets parameter "{param}" equal to string "{value}"')
+@given('Test Agent sets UEntity "{entity}" field "{param}" equal to string "{value}"')
 def initialize_protobuf(context, entity: str, param: str, value: str):    
+    
+    # NOTE: NEED TEST AGENT should call UEntity, UResource, protobufs builders
     if entity not in context.initialized_data:
-        context.initialized_data[entity] = UEntityBuilder()
+        context.initialized_data[entity] = UEntityBuilder()  # cant do THIS
     
     builder: UEntityBuilder = context.initialized_data[entity]
     builder.set(param, value)
         
-@given('protobuf UResource "{resrc}" sets parameter "{param}" equal to string "{value}"')
+@given('Test Agent sets UResource "{resrc}" field "{param}" equal to string "{value}"')
 def initialize_protobuf(context, resrc: str, param: str, value: str):
     if resrc not in context.initialized_data:
         context.initialized_data[resrc] = UResourceBuilder()
@@ -163,7 +165,7 @@ def initialize_protobuf(context, resrc: str, param: str, value: str):
     builder: UResourceBuilder = context.initialized_data[resrc]
     builder.set(param, value)
 
-@given('protobuf UUri "{uuri}" sets parameter "{param}" equal to created protobuf "{value}"')
+@given('Test Agent sets UUri "{uuri}" field "{param}" equal to created protobuf "{value}"')
 def initialize_protobuf(context, uuri: str, param: str, value: str):
     if uuri not in context.initialized_data:
         context.initialized_data[uuri] = UUriBuilder()
@@ -176,7 +178,7 @@ def initialize_protobuf(context, uuri: str, param: str, value: str):
     
     builder.set(param, value_builder.build())
     
-@given('protobuf UAttributes "{uattr}" creates publish message with parameter source equal to created protobuf "{value}"')
+@given('Test Agent sets UAttributes "{uattr}" creates publish message with parameter source equal to created protobuf "{value}"')
 def initialize_protobuf(context, uattr: str, value: str):
     value_builder: Builder = context.initialized_data[value]
     
@@ -184,7 +186,7 @@ def initialize_protobuf(context, uattr: str, value: str):
     context.initialized_data[uattr] = new_builder
     context.initialized_data["uattributes_builder"] = new_builder
 
-@given('protobuf UPayload "{payload}" sets parameter "{param}" equal to "{value}"')
+@given('Test Agent sets UPayload "{payload}" field "{param}" equal to "{value}"')
 def initialize_protobuf(context, payload: str, param: str, value: str):
     if payload not in context.initialized_data:
         context.initialized_data[payload] = UPayloadBuilder()
@@ -195,7 +197,7 @@ def initialize_protobuf(context, payload: str, param: str, value: str):
     builder.set(param, value)
 
     
-@when('Test Manager sends "{command}" request to Test Agent "{sdk_name}"')
+@when('Test Agent "{sdk_name}" executes "{command}" on given UUri')
 def tm_sends_request(context, command: str, sdk_name: str):
     command = command.lower().strip()
     
@@ -224,10 +226,12 @@ def tm_sends_request(context, command: str, sdk_name: str):
     
     test_manager: SocketTestManager = context.tm
     context.logger.info(f"sdk_name: {sdk_name}; command: {command}")
-    context.status = test_manager.request(sdk_name, command, umsg)
     
-    context.logger.info("context.status:")
-    context.logger.info(context.status)
+    status: UStatus = test_manager.request(sdk_name, command, umsg)
+    context.sdk_to_status[sdk_name] = status
+    
+    context.logger.info("context.sdk_to_status:")
+    context.logger.info(context.sdk_to_status[sdk_name])
 
 
 @when('Test Manager sends "{command}" uri serializer request to Test Agent "{sdk_name}"')
@@ -254,21 +258,20 @@ def tm_sends_uri_serializer_request(context, command: str, sdk_name: str):
         
     context.translation = translation
 
-@then('Test Manager receives an "{status_code}" status for "{command}" request')
-def tm_receives_response(context, status_code: str, command: str):
-    response_status: UStatus = context.status
+@then('Test Agent "{sdk_name}" receives an "{status_code}" status for latest execute')
+def tm_receives_response(context, status_code: str, sdk_name: str):
+    response_status: UStatus = context.sdk_to_status[sdk_name]
     if response_status is None:
-        raise ValueError(f"{command} request did not receive a response UStatus")
+        raise ValueError(f"Request did not receive a response UStatus")
 
     status_code = status_code.lower().strip()
     if status_code == "ok":
-        assert_that(context.status.code, equal_to(UCode.OK))
-        # assert_that(context.status.code, equal_to(UCode.INTERNAL))
+        assert_that(response_status.code, equal_to(UCode.OK))
     
     # reset status var
-    context.status =  None
+    context.sdk_to_status[sdk_name] =  None
 
-@then('Test Manager receives OnReceive UMessage from "{sdk_name}" Test Agent with parameter UPayload "{param}" with parameter "{inner_param}" as "{expected}"')
+@then('Test Agent "{sdk_name}" builds OnReceive UMessage with parameter UPayload "{param}" with parameter "{inner_param}" as "{expected}"')
 def tm_receives_onreceive(context, sdk_name: str, param: str, inner_param: str, expected: str):
     test_manager: SocketTestManager = context.tm
     

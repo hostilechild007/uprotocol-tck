@@ -23,9 +23,11 @@
  */
 
 package org.eclipse.uprotocol.tck.up_client_socket_java;
+import org.eclipse.uprotocol.rpc.CallOptions;
 import org.eclipse.uprotocol.transport.UListener;
-import org.eclipse.uprotocol.transport.UTransport;
 import org.eclipse.uprotocol.v1.*;
+import org.eclipse.uprotocol.uri.factory.UResourceBuilder;
+import org.eclipse.uprotocol.transport.builder.UAttributesBuilder;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,17 +38,21 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
-public class SocketUTransport implements UTransport {
+public class SocketUTransport implements IUTransport {
+    private static final String DISPATCHER_IP = "127.0.0.1";
+    private static final Integer DISPATCHER_PORT = 44444;
+
     private static final Logger logger = Logger.getLogger(SocketUTransport.class.getName());
     private final Socket socket;
     private final Map<UUri, ArrayList<UListener>> topicToListener = new ConcurrentHashMap<>();
-    Map<UUID, CompletableFuture<UMessage>> reqidToFuture = new HashMap<>();
+    Map<UUID, CompletionStage<UMessage>> reqidToFuture = new HashMap<>();
 
-    public SocketUTransport(String hostIp, int port) throws IOException {
-        socket = new Socket(hostIp, port);
+    public SocketUTransport() throws IOException {
+        socket = new Socket(DISPATCHER_IP, DISPATCHER_PORT);
         Thread thread = new Thread(() -> {
             try {
                 listen();
@@ -55,6 +61,22 @@ public class SocketUTransport implements UTransport {
             }
         });
         thread.start();
+    }
+
+    public SocketUTransport(boolean listen) throws IOException {
+        socket = new Socket(DISPATCHER_IP, DISPATCHER_PORT);
+
+        // if want to receive messages, then spin new thread to receive messages
+        if (listen){
+            Thread thread = new Thread(() -> {
+                try {
+                    listen();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+            thread.start();
+        }
     }
 
     private void listen() throws IOException {
@@ -69,11 +91,12 @@ public class SocketUTransport implements UTransport {
                 logger.info("Received uMessage: " + umsg);
                 
                 // if registered to topic, then listeners should receive this incoming UMessage 
-                UUri topic = umsg.getAttributes().getSource();
                 UAttributes attributes = umsg.getAttributes();
 
-                if (attributes.getType() == UMessageType.UMESSAGE_TYPE_PUBLISH || attributes.getType() == UMessageType.UMESSAGE_TYPE_REQUEST) {
-                    this.handlePublishMessage(topic, umsg);
+                if (attributes.getType() == UMessageType.UMESSAGE_TYPE_PUBLISH){
+                    this.handlePublishMessage(umsg);
+                } else if (attributes.getType() == UMessageType.UMESSAGE_TYPE_REQUEST) {
+                    this.handleRequestMessage(umsg);
                 } else if (attributes.getType() == UMessageType.UMESSAGE_TYPE_RESPONSE) {
                     this.handleResponseMessage(umsg);
                 }
@@ -87,7 +110,9 @@ public class SocketUTransport implements UTransport {
         }
     }
 
-    private void handlePublishMessage(UUri topic, UMessage umsg) {
+    private void handlePublishMessage(UMessage umsg) {
+        // NOTE: publish mesgs' attribute.source is the recevied publish topic
+        UUri topic = umsg.getAttributes().getSource();
 
         if (topicToListener.containsKey(topic)) {
             for (UListener listener : topicToListener.get(topic)) {
@@ -102,9 +127,34 @@ public class SocketUTransport implements UTransport {
     private void handleResponseMessage(UMessage umsg) {
         UUID requestId = umsg.getAttributes().getReqid();
         if (this.reqidToFuture.containsKey(requestId)) {
-            CompletableFuture<UMessage> responseFuture = this.reqidToFuture.get(requestId);
-            responseFuture.complete(umsg);
+            CompletionStage<UMessage> responseFuture = this.reqidToFuture.get(requestId);
+            //NOTE: mIGHT NOT WORK below
+            responseFuture.toCompletableFuture().complete(umsg);
+            
+            responseFuture.whenComplete((input, exception) -> {
+                  if (exception != null) {
+                      System.out.println("exception occurs");
+                      System.err.println(exception);
+                  } else {
+                      System.out.println("SUCCESS: got result: " + input);
+                  }
+              });
+
+            // responseFuture.complete(umsg);
             this.reqidToFuture.remove(requestId);
+        }
+    }
+
+    private void handleRequestMessage(UMessage umsg) {
+        // NOTE: request mesgs' attribute.sink is for subscribed/registered Destination UUri
+        UUri topic = umsg.getAttributes().getSink();
+        if (topicToListener.containsKey(topic)) {
+            for (UListener listener : topicToListener.get(topic)) {
+                Logger.getLogger(" Handle Topic");
+                listener.onReceive(umsg);
+            }
+        } else {
+            Logger.getLogger(" Topic not found in Listener Map, discarding...");
         }
     }
 
@@ -162,11 +212,24 @@ public class SocketUTransport implements UTransport {
                 .build();
     }
 
-    public CompletableFuture<UMessage> invokeMethod(UMessage umsg) {
-        UUID requestId = umsg.getAttributes().getReqid();
-        CompletableFuture<UMessage> response = new CompletableFuture<>();
+    @Override
+    public CompletionStage<UMessage> invokeMethod(UUri methodUri, UPayload requestPayload, CallOptions options) {
+        UEntity entity = UEntity.newBuilder().setName("nameJava").setVersionMajor(1).build();
+        UResource resrc = UResourceBuilder.forRpcResponse();
+        UUri source = UUri.newBuilder().setEntity(entity).setResource(resrc).build();
+
+        //have to create own uAttribute UUID to 
+        UAttributes attributes = UAttributesBuilder.request(source, methodUri, UPriority.UPRIORITY_CS4, options.timeout()).build();
+        
+        //Get UAttributes's request id
+        UUID requestId = attributes.getId();
+
+        UMessage request_umsg = UMessage.newBuilder().setAttributes(attributes).setPayload(requestPayload).build();
+
+        //create Future so can store response UMessage in the future
+        CompletionStage<UMessage> response = new CompletableFuture<>();
         this.reqidToFuture.put(requestId, response);
-        this.send(umsg);
+        this.send(request_umsg);
         return response;
     }
 }
