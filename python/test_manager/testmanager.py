@@ -28,6 +28,7 @@ import socket
 import selectors
 import threading
 import re
+import sys
 from collections import defaultdict
 from typing import Deque, Dict, List
 from google.protobuf.any_pb2 import Any
@@ -39,9 +40,11 @@ from uprotocol.proto.umessage_pb2 import UMessage
 from uprotocol.proto.ustatus_pb2 import UStatus
 from uprotocol.rpc.rpcmapper import RpcMapper
 
-from up_client_socket_python.utils.socket_message_processing_utils import receive_socket_data, convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, protobuf_to_base64, base64_to_protobuf_bytes, send_socket_data, is_close_socket_signal, is_json_message
-
-from logger.logger import logger
+sys.path.append("../")
+ 
+from python.utils.socket_message_processing_utils import receive_socket_data, convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, protobuf_to_base64, base64_to_protobuf_bytes, send_socket_data, is_close_socket_signal, is_json_message
+ 
+from python.logger.logger import logger
 
 class SocketTestManager():
     """
