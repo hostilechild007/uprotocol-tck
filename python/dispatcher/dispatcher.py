@@ -188,6 +188,7 @@ class Dispatcher:
         recv_data: bytes = receive_socket_data(utransport)
 
         if recv_data == b"":
+            logger.info(f"received empty data: {recv_data}")
             try:
                 self.__writer_priority_write_sockets(self.__close_socket, utransport)
 

@@ -128,19 +128,8 @@ public class SocketUTransport implements IUTransport {
         UUID requestId = umsg.getAttributes().getReqid();
         if (this.reqidToFuture.containsKey(requestId)) {
             CompletionStage<UMessage> responseFuture = this.reqidToFuture.get(requestId);
-            //NOTE: mIGHT NOT WORK below
             responseFuture.toCompletableFuture().complete(umsg);
             
-            responseFuture.whenComplete((input, exception) -> {
-                  if (exception != null) {
-                      System.out.println("exception occurs");
-                      System.err.println(exception);
-                  } else {
-                      System.out.println("SUCCESS: got result: " + input);
-                  }
-              });
-
-            // responseFuture.complete(umsg);
             this.reqidToFuture.remove(requestId);
         }
     }
@@ -206,6 +195,13 @@ public class SocketUTransport implements IUTransport {
     			topicToListener.remove(topic);
     		}
     	}
+    	else {
+    		return UStatus.newBuilder()
+                    .setCode(UCode.NOT_FOUND)
+                    .setMessage("UUri topic was not registered initially")
+                    .build();
+    	}
+    	
         return UStatus.newBuilder()
                 .setCode(UCode.OK)
                 .setMessage("OK")

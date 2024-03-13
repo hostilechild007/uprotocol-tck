@@ -181,6 +181,9 @@ Feature: Test Agents testing messaging to each other and internal UTransport wit
         Examples: Test Agents
         | uE1     | uE2    |
         | python  | python |
+        | python  | java   |
+        | java    | python |
+        | java    | java   |
     # Scenario Outline: Testing Test Manager's long uri serializer on given UUri
 
     #     Given protobuf UEntity "entity" field "name" equal to string "body.access"  
