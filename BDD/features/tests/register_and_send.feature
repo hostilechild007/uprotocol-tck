@@ -25,45 +25,8 @@
 # -------------------------------------------------------------------------
 
 Feature: Test Agents testing messaging to each other and internal UTransport with send, registerlistener, and invokemethod
-
-#NOTE: A behavior scenario specification should focus on one individual behavior
-    
-    Scenario Outline: To test the registerlistener and send apis
-        Given “<uE1>” creates data for "registerlistener"
-            And sets "uri.entity.name" to "body.access"
-            And sets "uri.resource.name" to "door"
-            And sets "uri.resource.instance" to "front_left"
-            And sets "uri.resource.message" to "Door"
-            And sends "registerlistener" request
-            And the status for "registerlistener" request is "OK"
-
-        When “<uE2>” creates data for "send"
-            And sets "uri.entity.name" to "body.access"
-            And sets "uri.resource.name" to "door"
-            And sets "uri.resource.instance" to "front_left"
-            And sets "uri.resource.message" to "Door"
-            And sets "attributes.priority" to "UPRIORITY_CS1"
-            And sets "attributes.type" to "UMESSAGE_TYPE_PUBLISH"
-            And sets "attributes.id" to "12345"
-            And sets "payload.format" to "protobuf"
-            And sets "payload.value" to "serialized protobuf data"
-            And sends "send" request
-            And the status for "send" request is "OK"
-
-        Then "<uE1>" receives "payload.value" as "serialized protobuf data"
-
-        Examples: topic_names
-        | uE1     | uE2    |
-        | python  | java   |
-        | python  | python |
-        | java    | python |
-    
     
     Scenario Outline: Test Agent's registerlistener() on given UUri
-        #New Given: set data first for (UUri, UPayload, UAttributes)
-        # should have separate scenarios checking status for registerlistener() and send()
-
-        # Note: each step should be DESCRIPTIVE as POSSIBLE!
         Given Test Agent sets UEntity "entity" field "name" equal to string "body.access"  
             And Test Agent sets UResource "resource" field "name" equal to string "door" 
             And Test Agent sets UResource "resource" field "instance" equal to string "front_left" 
@@ -172,10 +135,6 @@ Feature: Test Agents testing messaging to each other and internal UTransport wit
             And Test Agent "<uE2>" executes "invokemethod" on given UUri
             And Test Agent "<uE2>" executes "unregisterlistener" on given UUri
 
-        # NEW way of commenting without mentioning "Test manager": ...
-        # Given protobuf UEntity "entity" sets field "name" equal to string "body.access"  
-        # When Test Agent "<uE1>" executes "registerlistener" on given UUri 
-        #     And Test Agent "<uE2>" executes "invokemethod" on given UUri 
         Then Test Agent "<uE2>" receives an "OK" status for latest execute
 
         Examples: Test Agents
@@ -184,32 +143,3 @@ Feature: Test Agents testing messaging to each other and internal UTransport wit
         | python  | java   |
         | java    | python |
         | java    | java   |
-    # Scenario Outline: Testing Test Manager's long uri serializer on given UUri
-
-    #     Given protobuf UEntity "entity" field "name" equal to string "body.access"  
-    #         And protobuf UResource "resource" field "name" equal to string "door" 
-    #         And protobuf UResource "resource" field "instance" equal to string "front_left" 
-    #         And protobuf UResource "resource" field "message" equal to string "Door" 
-    #         And protobuf UUri "uuri" field "entity" equal to created protobuf "entity"
-    #         And protobuf UUri "uuri" field "resource" equal to created protobuf "resource"
-        
-    #     When Test Agent "<uE1>" executes "longuriserialize" uri serializer on given UUri "<uE1>"
-
-    #     Then Test Manager receives a string "/body.access//door.front_left#Door"
-
-    #     Examples: 
-    #     | uE1     |
-    #     | python  |
-    
-
-    # Scenario Outline: Testing Test Manager's long uri deserializer on given UUri
-
-    #     Given serialized UUri string "/body.access//door.front_left#Door"
-        
-    #     When Test Agent "<uE1>" executes "longurideserialize" uri serializer on given UUri "<uE1>"
-
-    #     Then Test Manager receives a protobuf UUri "/body.access//door.front_left#Door"
-
-    #     Examples: 
-    #     | uE1     |
-    #     | python  |

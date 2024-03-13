@@ -59,15 +59,6 @@ def create_file_path(filepath_from_root_repo: str) -> str:
 def create_command(filepath_from_root_repo: str) -> List[str]:
     command: List[str] = []
 
-    if sys.platform == "win32":
-        command.append("start")
-        pass
-    elif sys.platform == "linux" or sys.platform == "linux2":
-        command.append('gnome-terminal')
-        command.append('--')
-    else:
-        raise Exception("only handle Windows and Linux commands for now")
-
     if filepath_from_root_repo.endswith('.jar'):
         command.append("java")
         command.append("-jar")

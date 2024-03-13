@@ -126,16 +126,16 @@ class SocketTestAgent:
         elif action == INVOKE_METHOD_COMMAND:
             future_umsg: Future = self.utransport.invoke_method(source, payload, CallOptions())
             
-            # need to have service that sends data back above
-            # currently the Test Agent is the Client_door, and can act as service
+            # Need to have service that sends data back above
+            # Currently the Test Agent is the Client_door, and can act as service
             status = UStatus(code=UCode.OK, message="OK") 
         self.send(status)
         
         if action == INVOKE_METHOD_COMMAND:
-            # wait for response, and if havent gotten response in 10 sec then continue
+            # Wait for response, and if havent gotten response in 10 sec then continue
             
-            #when got response, sub/reg 
-            logger.info("waiting for future umsg")
+            # When got response, sub/reg waits until Future is completed/filled
+            logger.info("Waiting for future UMessage")
             start_time = time.time()
             wait_time_secs = 10.0
             while not future_umsg.done() and time.time() - start_time < wait_time_secs:

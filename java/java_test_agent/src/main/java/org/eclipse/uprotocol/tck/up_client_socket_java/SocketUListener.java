@@ -69,7 +69,6 @@ public class SocketUListener implements UListener {
             clientOutputStream.flush();
 
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
 

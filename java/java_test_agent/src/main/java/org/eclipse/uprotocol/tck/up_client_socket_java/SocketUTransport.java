@@ -111,7 +111,7 @@ public class SocketUTransport implements IUTransport {
     }
 
     private void handlePublishMessage(UMessage umsg) {
-        // NOTE: publish mesgs' attribute.source is the recevied publish topic
+        // Publish messages' attribute.source is the recevied publish topic
         UUri topic = umsg.getAttributes().getSource();
 
         if (topicToListener.containsKey(topic)) {
@@ -135,7 +135,7 @@ public class SocketUTransport implements IUTransport {
     }
 
     private void handleRequestMessage(UMessage umsg) {
-        // NOTE: request mesgs' attribute.sink is for subscribed/registered Destination UUri
+        // Request messages' attribute.sink is for subscribed/registered Destination UUri
         UUri topic = umsg.getAttributes().getSink();
         if (topicToListener.containsKey(topic)) {
             for (UListener listener : topicToListener.get(topic)) {

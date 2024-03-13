@@ -56,101 +56,8 @@ from python.test_manager.testmanager import SocketTestManager
 from python.getters.umessagegetter import UMessageGetter
 from python.getters.upayloadgetter import UPayloadGetter
 
-@given(u'“{sdk_name}” creates data for "{command}"')
-@when(u'“{sdk_name}” creates data for "{command}"')
-def step_impl(context, sdk_name: str, command: str):
-    context.logger.info("Inside create register listener data")
-    context.json_array = {}
-
-    while not context.tm.has_sdk_connection(sdk_name):
-        continue
-
-    context.ue = sdk_name
-    context.json_array['ue'] = [sdk_name]
-    context.json_array['action'] = [command]
-
-
-@given(u'sets "{key}" to "{value}"')
-@when(u'sets "{key}" to "{value}"')
-def step_impl(context: Context, key: str, value: str):
-    '''
-    # NOTE: can set like ...
-    # And sets "uri.resource.message" to "Door"
-    change to 
-    And sets "resource.message" to primitive "Door"  -> sets "resource".message = Door
-    And sets "uri.resource" to protobuf "resource"  -> uri.resource = resource
-    
-    Can i prep data w/ data type already when putting value in dict?
-    
-    '''
-    context.logger.info("Json data: Key is " + str(key) + " value is " + str(value))
-    if key not in context.json_array:
-        context.json_array[key] = [value]
-
-
-@given(u'sends "{command}" request')
-@when(u'sends "{command}" request')
-def step_impl(context, command: str):
-    context.logger.info(f"Json request for {command} -> {str(context.json_array)}")
-    context.status = context.tm.json_action_request(context.json_array)
-    context.logger.info(f"Status Received: {context.status}")
-
-
-@step(u'the status for "{command}" request is "{status}"')
-def step_impl(context, command, status):
-    context.logger.info(f"Status for {command} is {context.status}")
-    assert_that(context.status.message, equal_to(status))
-
-
-@then(u'"{sdk_name}" receives "{key}" as "{value}"')
-def step_impl(context, sdk_name, key, value):
-    try:
-        if context.tm.received_umessage not in ['', None]:
-            received_payload: UPayload = context.tm.received_umessage.payload
-            context.logger.info(f"Payload data for {sdk_name} is {received_payload}")
-            assert_that(received_payload.value.decode('utf-8'), equal_to(value))
-        else:
-            raise ValueError(f"Received empty payload for {sdk_name}")
-
-    except AssertionError as ae:
-        raise AssertionError(f"Assertion error. Expected is {value} but "
-                             f"received {received_payload.value.decode('utf-8')}",
-                             exc_info=ae)
-        
-@given('"{sdk_name}" is connected to the Test Manager')
-def tm_connects_to_ta_socket(context, sdk_name: str):
-    test_manager: SocketTestManager = context.tm
-    
-    start_time: float = time.time()
-    end_time: float = start_time
-    wait_sec: float = 7.0
-    
-    while not test_manager.has_sdk_connection(sdk_name):
-        time.sleep(1)
-        end_time = time.time()
-    if not test_manager.has_sdk_connection(sdk_name):
-        context.logger.error(sdk_name + " Test Agent didn't connect in time")
-        raise Exception(sdk_name + " Test Agent didn't connect in time")
-    
-    context.logger.info(f"{sdk_name} TA connects to TM {test_manager.sdk_to_test_agent_socket.keys()}")
-
-
-@when('"{sdk_name}" closes its client socket connection')
-def tm_closing_ta_socket(context, sdk_name: str):
-    test_manager: SocketTestManager = context.tm
-    # test_manager.close_ta(sdk_name)
-    context.logger.info(f"TM closed TA connection {sdk_name} {test_manager.sdk_to_test_agent_socket.keys()}")
-    pass
-    
-@then('Test Manager closes server socket connection to the "{sdk_name}"')
-def step_impl(context, sdk_name: str):
-    # context.logger.info("YOOOO SERVER cLOSED")
-    pass
-
 @given('Test Agent sets UEntity "{entity}" field "{param}" equal to string "{value}"')
 def initialize_protobuf(context, entity: str, param: str, value: str):    
-    
-    # NOTE: NEED TEST AGENT should call UEntity, UResource, protobufs builders
     if entity not in context.initialized_data:
         context.initialized_data[entity] = UEntityBuilder()  # cant do THIS
     
@@ -170,7 +77,6 @@ def initialize_protobuf(context, uuri: str, param: str, value: str):
     if uuri not in context.initialized_data:
         context.initialized_data[uuri] = UUriBuilder()
         
-        # can later get filled data directly when send request
         context.initialized_data["uuri_builder"] = context.initialized_data[uuri]
     
     builder: UUriBuilder = context.initialized_data[uuri]
@@ -196,7 +102,7 @@ def initialize_protobuf(context, payload: str, param: str, value: str):
     builder: UPayloadBuilder = context.initialized_data[payload]
     builder.set(param, value)
 
-    
+
 @when('Test Agent "{sdk_name}" executes "{command}" on given UUri')
 def tm_sends_request(context, command: str, sdk_name: str):
     command = command.lower().strip()
@@ -220,7 +126,7 @@ def tm_sends_request(context, command: str, sdk_name: str):
         umsg: UMessage =  UMessageBuilder().set_uuri(uuri).set_payload(upayload).set_attributes(uattr).build()
     
         
-    # wait till TA is connected
+    # Wait until TA is connected
     while not context.tm.has_sdk_connection(sdk_name):
         continue
     
@@ -241,7 +147,7 @@ def tm_sends_uri_serializer_request(context, command: str, sdk_name: str):
     uuri_builder: UUriBuilder = context.initialized_data["uuri_builder"]
     uuri: UUri = uuri_builder.build()
         
-    # wait till TA is connected
+    # Wait until TA is connected
     while not context.tm.has_sdk_connection(sdk_name):
         continue
     
@@ -268,7 +174,7 @@ def tm_receives_response(context, status_code: str, sdk_name: str):
     if status_code == "ok":
         assert_that(response_status.code, equal_to(UCode.OK))
     
-    # reset status var
+    # Reset status variable
     context.sdk_to_status[sdk_name] =  None
 
 @then('Test Agent "{sdk_name}" builds OnReceive UMessage with parameter UPayload "{param}" with parameter "{inner_param}" as "{expected}"')
@@ -284,16 +190,3 @@ def tm_receives_onreceive(context, sdk_name: str, param: str, inner_param: str, 
         
     assert_that(actual.decode('utf-8'), equal_to(expected))
     
-@then('Test Manager receives a string "{expected_translation}"')
-def tm_receives_serializer_translation(context, expected_translation: str):
-    
-    if context.translation is None:
-        raise ValueError(f"Test Manager did not receive any serializer translation")
-    elif not isinstance(context.translation, str):
-        raise ValueError(f"Test Manager did not receive string translation")
-
-    actual_translation: str = context.translation 
-    context.translation = None
-    
-    context.logger.info(f"actual_translation: {actual_translation}")
-    assert_that(actual_translation, equal_to(expected_translation))

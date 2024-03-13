@@ -32,7 +32,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.eclipse.uprotocol.tck.up_client_socket_java.SocketUListener;
-import org.eclipse.uprotocol.tck.up_client_socket_java.SocketUTransport;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -55,12 +54,12 @@ public class TestAgent {
     private static final Set<String> COMMANDS = new HashSet<>(Arrays.asList(new String[] {SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND}));
 
     private static final Logger logger = Logger.getLogger(TestAgent.class.getName());
-    private SocketUTransport socketUTransport;
+    private TransportLayer socketUTransport;
     private JSONObject jsonObject;
     private Socket clientSocket;
     OutputStream clientOutputStream;
 
-    public TestAgent(Socket socket, SocketUTransport utransport, SocketUListener listener) {
+    public TestAgent(Socket socket, TransportLayer utransport, SocketUListener listener) {
         try {
             // Socket Connection to Dispatcher
             this.socketUTransport = utransport;
@@ -129,8 +128,6 @@ public class TestAgent {
 
         UPayload payload = umsg.getPayload();
         UAttributes attributes = umsg.getAttributes();
-        // source: UUri = received_proto.attributes.source
-        // payload: UPayload = received_proto.payload
 
         CompletableFuture<UMessage> futureMsg = new CompletableFuture<>();
         UStatus status = null;

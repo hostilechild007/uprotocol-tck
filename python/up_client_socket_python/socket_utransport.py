@@ -65,7 +65,6 @@ class SocketUTransport(UTransport, RpcClient):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  
         self.socket.connect(DISPATCHER_ADDR)  
 
-        # self.rpcclient: RpcClient = SocketRPCClient(None, None, server_conn=self.socket)
         self.reqid_to_future: Dict[bytes, Future] = {}
 
         self.topic_to_listener: Dict[bytes, List[UListener]] = {} 
@@ -115,7 +114,7 @@ class SocketUTransport(UTransport, RpcClient):
             del self.reqid_to_future[request_id_b]
                     
     def _handle_publish_message(self, umsg: UMessage):
-        # NOTE: publish mesgs' attribute.source is the recevied publish topic
+        # Publish messages' attribute.source is the recevied publish topic
         topic_b: bytes = umsg.attributes.source.SerializeToString()
         if topic_b in self.topic_to_listener:
             logger.info(f"{self.__class__.__name__} Handle Topic")
@@ -126,7 +125,7 @@ class SocketUTransport(UTransport, RpcClient):
             logger.info(f"{self.__class__.__name__} Topic not found in Listener Map, discarding...")
 
     def _handle_request_message(self, umsg: UMessage):
-        # NOTE: request mesgs' attribute.sink is for subscribed/registered Destination UUri
+        # Request messages' attribute.sink is for subscribed/registered Destination UUri
         topic_b: bytes = umsg.attributes.sink.SerializeToString()
         if topic_b in self.topic_to_listener:
             logger.info(f"{self.__class__.__name__} Handle Topic")
@@ -195,9 +194,9 @@ class SocketUTransport(UTransport, RpcClient):
     def invoke_method(self, methodUri: UUri, request_payload: UPayload, options: CallOptions) -> Future:
         source = UUri(entity=UEntity(name="name1", version_major=1), resource=UResourceBuilder.for_rpc_response())
         
-        # have to create own uAttribute UUID to 
+        # Have to create own uAttribute UUID to 
         attributes = UAttributesBuilder.request(source, methodUri, UPriority.UPRIORITY_CS4, options.get_timeout()).build()
-        print(attributes)
+
         # Get UAttributes's request id
         request_id: UUID = attributes.id
         response = Future()
@@ -207,22 +206,3 @@ class SocketUTransport(UTransport, RpcClient):
         self.send(umsg)
         return response
     
-    # def invoke_method(self, topic: UUri, payload: UPayload, attributes: UAttributes) -> Future:
-    #     """
-    #     Support for RPC method invocation.<br><br>
-
-    #     @param topic: topic of the method to be invoked (i.e. the name of the API we are calling).
-    #     @param payload:The request message to be sent to the server.
-    #     @param attributes: metadata for the method invocation (i.e. priority, timeout, etc.)
-    #     @return: Returns the CompletableFuture with the result or exception.
-    #     """
-        
-    #     # Get UAttributes's request id
-    #     request_id: UUID = attributes.id
-    #     response = Future()
-    #     self.reqid_to_future[request_id.SerializeToString()] = response
-
-    #     umsg: UMessage = UMessageBuilder().set_uuri(topic).set_payload(payload).set_attributes(attributes).build()
-    #     self.send(umsg)
-        
-    #     return response

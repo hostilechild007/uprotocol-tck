@@ -83,11 +83,3 @@ class UAuthorityBuilder(Builder):
         if self.name is not None:
             attributes.name = self.name
         return attributes
-
-# authority = UAuthorityBuilder().set_ip(b"4321").set_id(b"1234").set_id(b"1234").set_ip(b"4321").set_name("name").build()
-# print("authority.name:", authority.name)
-# print(authority.ip)
-# print(authority.id)
-# print("authority: ", authority)
-# authority = UAuthorityBuilder().set("ip", "4321").set("ip", "1234").set("id", "1234").set("name", "name").build()
-# print(authority)
