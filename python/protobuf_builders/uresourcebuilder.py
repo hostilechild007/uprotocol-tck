@@ -24,9 +24,12 @@
 #
 # -------------------------------------------------------------------------
 
+import sys
 
 from uprotocol.proto.uri_pb2 import UResource  
-from protobuf_builders.builder import Builder
+
+sys.path.append("../")
+from python.protobuf_builders.builder import Builder
 
 NAME_VAR: str = "name"
 ID_VAR: str = "id"

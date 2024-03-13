@@ -23,11 +23,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # -------------------------------------------------------------------------
-
+import sys
 from google.protobuf.any_pb2 import Any
 
 from uprotocol.proto.uri_pb2 import UUri, UAuthority, UEntity, UResource
-from protobuf_builders.builder import Builder
+
+sys.path.append("../")
+from python.protobuf_builders.builder import Builder
 
 AUTHORITY_VAR: str = "authority"
 ENTITY_VAR: str = "entity"

@@ -23,13 +23,15 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # -------------------------------------------------------------------------
-
-
-from protobuf_builders.builder import Builder
+import sys
 from uprotocol.proto.umessage_pb2 import UMessage
 from uprotocol.proto.uattributes_pb2 import UAttributes
 from uprotocol.proto.uri_pb2 import UUri
 from uprotocol.proto.upayload_pb2 import UPayload
+
+sys.path.append("../")
+
+from python.protobuf_builders.builder import Builder
 
 class UMessageBuilder(Builder):
     def __init__(self) -> None:
