@@ -34,11 +34,6 @@
             <artifactId>json</artifactId>
             <version>20231013</version>
         </dependency>
-        <dependency>
-        	<groupId>com.porting.simulationproxy</groupId>
-        	<artifactId>simulation-proxy</artifactId>
-        	<version>0.0.1-SNAPSHOT</version>
-        </dependency>
     </dependencies>
     <build>
         <plugins>
