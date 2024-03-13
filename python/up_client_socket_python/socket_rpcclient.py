@@ -23,7 +23,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # -------------------------------------------------------------------------
-
+import sys
 import socket
 from concurrent.futures import Future, ThreadPoolExecutor
 
@@ -34,6 +34,8 @@ from uprotocol.proto.upayload_pb2 import UPayload
 from uprotocol.proto.uri_pb2 import UUri
 from uprotocol.proto.uuid_pb2 import UUID
 from uprotocol.rpc.rpcclient import RpcClient
+
+sys.path.append("../")
 
 from python.utils.constants import BYTES_MSG_LENGTH
 

@@ -24,8 +24,12 @@
 #
 # -------------------------------------------------------------------------
 
+import sys
 from uprotocol.proto.upayload_pb2 import UPayload, UPayloadFormat
-from up_proto_params_constant.upayload_param_names import REFERENCE_VAR, VALUE_VAR, LENGTH_VAR, FORMAT_VAR
+
+sys.path.append("../")
+
+from python.up_proto_params_constant.upayload_param_names import REFERENCE_VAR, VALUE_VAR, LENGTH_VAR, FORMAT_VAR
 
 
 class UPayloadGetter:

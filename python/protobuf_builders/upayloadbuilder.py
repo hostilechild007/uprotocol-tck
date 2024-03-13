@@ -23,14 +23,13 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # -------------------------------------------------------------------------
-
+import sys
 
 from uprotocol.proto.upayload_pb2 import UPayload, UPayloadFormat
 from protobuf_builders.builder import Builder
-# import sys
-# import git
-# repo = git.Repo('.', search_parent_directories=True)
-# sys.path.append(repo.working_tree_dir)
+
+sys.path.append("../")
+
 from python.utils.proto_format_utils import get_upayload_format
 from python.up_proto_params_constant.upayload_param_names import REFERENCE_VAR, VALUE_VAR, LENGTH_VAR, FORMAT_VAR
 
