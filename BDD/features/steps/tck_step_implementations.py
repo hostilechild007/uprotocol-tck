@@ -27,11 +27,13 @@ import time
 from behave import when, then, given, step
 from behave.runner import Context
 from hamcrest import assert_that, equal_to
+from google.protobuf.any_pb2 import Any
 
 from uprotocol.proto.upayload_pb2 import UPayload
 from uprotocol.proto.uri_pb2 import UResource  
 from uprotocol.proto.ustatus_pb2 import UStatus
 from uprotocol.proto.ustatus_pb2 import UCode
+from uprotocol.proto.uri_pb2 import UEntity 
 from uprotocol.proto.uri_pb2 import UUri
 from uprotocol.proto.uattributes_pb2 import UAttributes, UPriority, UMessageType
 from uprotocol.proto.umessage_pb2 import UMessage
@@ -44,87 +46,84 @@ import git
 repo = git.Repo('.', search_parent_directories=True)
 sys.path.append(repo.working_tree_dir)
 
-from python.protobuf_builders.builder import Builder
-from python.protobuf_builders.uentitybuilder import UEntityBuilder
-from python.protobuf_builders.uresourcebuilder import UResourceBuilder
-from python.protobuf_builders.uuribuilder import UUriBuilder
-from python.protobuf_builders.umessagebuilder import UMessageBuilder
-from python.protobuf_builders.upayloadbuilder import UPayloadBuilder
-
+from python.utils.protobuf_setter_utils import set_umessage_fields, set_uuri_fields
+from python.utils.variable_type_converter import type_converter
 from python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND, LONG_URI_SERIALIZE, LONG_URI_DESERIALIZE, MICRO_URI_SERIALIZE, MICRO_URI_DESERIALIZE
 from python.test_manager.testmanager import SocketTestManager
-from python.getters.umessagegetter import UMessageGetter
-from python.getters.upayloadgetter import UPayloadGetter
 
-@given('Test Agent sets UEntity "{entity}" field "{param}" equal to string "{value}"')
-def initialize_protobuf(context, entity: str, param: str, value: str):    
+
+@given('Test Agent sets UEntity "{entity}" field "{param}" equal to "{type}" "{value}"')
+def initialize_protobuf(context, entity: str, param: str, type: str, value: str):    
     if entity not in context.initialized_data:
-        context.initialized_data[entity] = UEntityBuilder()  # cant do THIS
+        context.initialized_data[entity] = UEntity()  # cant do THIS
     
-    builder: UEntityBuilder = context.initialized_data[entity]
-    builder.set(param, value)
+    entity: UEntity = context.initialized_data[entity]
+    setattr(entity, param, type_converter(type, value))
         
-@given('Test Agent sets UResource "{resrc}" field "{param}" equal to string "{value}"')
-def initialize_protobuf(context, resrc: str, param: str, value: str):
+@given('Test Agent sets UResource "{resrc}" field "{param}" equal to "{type}" "{value}"')
+def initialize_protobuf(context, resrc: str, param: str, type: str, value: str):
     if resrc not in context.initialized_data:
-        context.initialized_data[resrc] = UResourceBuilder()
+        context.initialized_data[resrc] = UResource()
     
-    builder: UResourceBuilder = context.initialized_data[resrc]
-    builder.set(param, value)
+    resource: UResource = context.initialized_data[resrc]
+    
+    setattr(resource, param, type_converter(type, value) )
 
 @given('Test Agent sets UUri "{uuri}" field "{param}" equal to created protobuf "{value}"')
 def initialize_protobuf(context, uuri: str, param: str, value: str):
     if uuri not in context.initialized_data:
-        context.initialized_data[uuri] = UUriBuilder()
+        context.initialized_data[uuri] = UUri()
         
-        context.initialized_data["uuri_builder"] = context.initialized_data[uuri]
+        context.initialized_data["source"] = context.initialized_data[uuri]
     
-    builder: UUriBuilder = context.initialized_data[uuri]
-    value_builder: Builder = context.initialized_data[value]
+    uuri: UUri = context.initialized_data[uuri]
+    value: Any = context.initialized_data[value]
     
-    builder.set(param, value_builder.build())
+    set_uuri_fields(uuri, param, value)
     
 @given('Test Agent sets UAttributes "{uattr}" creates publish message with parameter source equal to created protobuf "{value}"')
 def initialize_protobuf(context, uattr: str, value: str):
-    value_builder: Builder = context.initialized_data[value]
+    value: Any = context.initialized_data[value]
     
-    new_builder: UAttributesBuilder = UAttributesBuilder.publish(value_builder.build(), UPriority.UPRIORITY_CS1)
+    new_builder: UAttributesBuilder = UAttributesBuilder.publish(value, UPriority.UPRIORITY_CS1)
     context.initialized_data[uattr] = new_builder
-    context.initialized_data["uattributes_builder"] = new_builder
+    context.initialized_data["attributes"] = new_builder
 
-@given('Test Agent sets UPayload "{payload}" field "{param}" equal to "{value}"')
-def initialize_protobuf(context, payload: str, param: str, value: str):
+@given('Test Agent sets UPayload "{payload}" field "{param}" equal to "{type}" "{value}"')
+def initialize_protobuf(context, payload: str, param: str, type: str, value: str):
     if payload not in context.initialized_data:
-        context.initialized_data[payload] = UPayloadBuilder()
+        context.initialized_data[payload] = UPayload()
         
-        context.initialized_data["upayload_builder"] = context.initialized_data[payload]
+        context.initialized_data["payload"] = context.initialized_data[payload]
     
-    builder: UPayloadBuilder = context.initialized_data[payload]
-    builder.set(param, value)
+    payload: UPayload = context.initialized_data[payload]
+    
+    setattr(payload, param, type_converter(type, value))
 
 
 @when('Test Agent "{sdk_name}" executes "{command}" on given UUri')
 def tm_sends_request(context, command: str, sdk_name: str):
     command = command.lower().strip()
+    umsg : UMessage = UMessage()
     
     if command in [REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND]:
-        uuri_builder: UUriBuilder = context.initialized_data["uuri_builder"]
-        uuri: UUri = uuri_builder.build()
+        uuri: UUri = context.initialized_data["source"]
         
-        umsg: UMessage =  UMessageBuilder().set_uuri(uuri).build()
+        attributes: UAttributes = UAttributesBuilder.publish(uuri, UPriority.UPRIORITY_CS1).build()
+        
+        set_umessage_fields(umsg, "attributes", attributes)
         
     elif command in [SEND_COMMAND, INVOKE_METHOD_COMMAND]:       
-        uuri_builder: UUriBuilder = context.initialized_data["uuri_builder"]
-        uuri: UUri = uuri_builder.build()
+        uuri: UUri = context.initialized_data["source"]
         
-        uattr_builder: UAttributesBuilder = context.initialized_data["uattributes_builder"]
-        uattr: UAttributes = uattr_builder.build()
+        uattr_builder: UAttributesBuilder = context.initialized_data["attributes"]
+        attributes: UAttributes = uattr_builder.build()
         
-        upay_builder: UPayloadBuilder = context.initialized_data["upayload_builder"]
-        upayload: UPayload = upay_builder.build()
+        upayload: UPayload = context.initialized_data["payload"]
         
-        umsg: UMessage =  UMessageBuilder().set_uuri(uuri).set_payload(upayload).set_attributes(uattr).build()
-    
+        set_umessage_fields(umsg, "attributes", attributes)
+        set_umessage_fields(umsg, "payload", upayload)
+            
         
     # Wait until TA is connected
     while not context.tm.has_sdk_connection(sdk_name):
@@ -144,8 +143,7 @@ def tm_sends_request(context, command: str, sdk_name: str):
 def tm_sends_uri_serializer_request(context, command: str, sdk_name: str):
     command = command.lower().strip()
     
-    uuri_builder: UUriBuilder = context.initialized_data["uuri_builder"]
-    uuri: UUri = uuri_builder.build()
+    uuri: UUri = context.initialized_data["source"]
         
     # Wait until TA is connected
     while not context.tm.has_sdk_connection(sdk_name):
@@ -183,10 +181,9 @@ def tm_receives_onreceive(context, sdk_name: str, param: str, inner_param: str, 
     
     umsg: UMessage = test_manager.get_onreceive(sdk_name)
     
-    umsg_param_getter = UMessageGetter(umsg)
-    upay: UPayload = umsg_param_getter.get(param)
+    upay: UPayload = getattr(umsg, param)
     
-    actual = UPayloadGetter(upay).get(inner_param)
+    actual = getattr(upay, inner_param)
         
     assert_that(actual.decode('utf-8'), equal_to(expected))
     

@@ -23,12 +23,22 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # -------------------------------------------------------------------------
+import sys
+sys.path.append("../")
 
+from python.utils.proto_format_utils import get_upayload_format
 
-from abc import ABC, abstractclassmethod
-
-class Builder(ABC):
+def type_converter(type: str, data: str):
+    type = type.lower().strip()
     
-    @abstractclassmethod
-    def build(self):
-        pass
+    if type in ["int", "integer"]:
+        return int(data)
+    elif type in ["bytes"]:
+        return data.encode()
+    elif type in ["str", "string"]:
+        return data
+    elif type in ["upayload_format"]:
+        return get_upayload_format(data)
+    else:
+        raise ValueError(f"type_converter() doesn't handle type {type}")
+    

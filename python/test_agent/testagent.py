@@ -54,8 +54,6 @@ from python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, \
     UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND, COMMANDS, SERIALIZERS
 from python.logger.logger import logger
 
-from python.getters.umessagegetter import UMessageGetter
-
 
 class SocketTestAgent:
     def __init__(self, test_clientsocket: socket.socket, utransport: TransportLayer, listener: UListener) -> None:

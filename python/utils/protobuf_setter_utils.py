@@ -24,7 +24,30 @@
 #
 # -------------------------------------------------------------------------
 
-REFERENCE_VAR: str = "reference"
-VALUE_VAR: str = "value"
-LENGTH_VAR: str = "length"
-FORMAT_VAR: str = "format"
+
+from google.protobuf.any_pb2 import Any
+from uprotocol.proto.uri_pb2 import UUri
+from uprotocol.proto.umessage_pb2 import UMessage
+
+
+def set_uuri_fields(proto: UUri, field_name: str, field_value: Any):
+    field_name = field_name.lower().strip()
+    
+    if field_name == "authority":
+        proto.authority.CopyFrom(field_value)
+    elif field_name == "entity":
+        proto.entity.CopyFrom(field_value)
+    elif field_name == "resource":
+        proto.resource.CopyFrom(field_value)
+    else:
+        raise ValueError(f"UUri doesn't handle field {field_name}")
+
+def set_umessage_fields(proto: UMessage, field_name: str, field_value: Any):
+    field_name = field_name.lower().strip()
+    
+    if field_name == "attributes":
+        proto.attributes.CopyFrom(field_value)
+    elif field_name == "payload":
+        proto.payload.CopyFrom(field_value)
+    else:
+        raise ValueError(f"UMessage doesn't handle field {field_name}")
