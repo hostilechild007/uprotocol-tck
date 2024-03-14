@@ -27,13 +27,14 @@
 Feature: Test Agents testing messaging to each other and internal UTransport with send, registerlistener, and invokemethod
     
     Scenario Outline: Test Agent's registerlistener() on given UUri
-        Given Test Agent sets UEntity "entity" field "name" equal to "string" "body.access"  
-            And Test Agent sets UResource "resource" field "name" equal to "string" "door" 
-            And Test Agent sets UResource "resource" field "instance" equal to "string" "front_left" 
-            And Test Agent sets UResource "resource" field "message" equal to "string" "Door" 
+        Given Test Agent "<uE1>" begins "registerlistener" test
+            And sets "uentity" field "name" equal to "string" "body.access"  
+            And sets "uresource" field "name" equal to "string" "door" 
+            And sets "uresource" field "instance" equal to "string" "front_left" 
+            And sets "uresource" field "message" equal to "string" "Door" 
 
-            And Test Agent sets UUri "uuri" field "entity" equal to created protobuf "entity"
-            And Test Agent sets UUri "uuri" field "resource" equal to created protobuf "resource"
+            And sets "uuri" field "entity" equal to "protobuf" "entity"
+            And sets "uuri" field "resource" equal to "protobuf" "resource"
             
         
         When Test Agent "<uE1>" executes "registerlistener" on given UUri
@@ -46,18 +47,19 @@ Feature: Test Agents testing messaging to each other and internal UTransport wit
 
     Scenario Outline: Testing Test Agent's send() request with respective response
 
-        Given Test Agent sets UEntity "entity" field "name" equal to "string" "body.access"  
-            And Test Agent sets UResource "resource" field "name" equal to "string" "door" 
-            And Test Agent sets UResource "resource" field "instance" equal to "string" "front_left" 
-            And Test Agent sets UResource "resource" field "message" equal to "string" "Door" 
+        Given Test Agent "<uE1>" begins "send" test
+            And sets "uentity" field "name" equal to "string" "body.access"  
+            And sets "uresource" field "name" equal to "string" "door" 
+            And sets "uresource" field "instance" equal to "string" "front_left" 
+            And sets "uresource" field "message" equal to "string" "Door" 
 
-            And Test Agent sets UUri "uuri" field "entity" equal to created protobuf "entity"
-            And Test Agent sets UUri "uuri" field "resource" equal to created protobuf "resource"
+            And sets "uuri" field "entity" equal to "protobuf" "entity"
+            And sets "uuri" field "resource" equal to "protobuf" "resource"
 
-            And Test Agent sets UAttributes "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
+            And sets "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
 
-            And Test Agent sets UPayload "payload" field "format" equal to "upayload_format" "UPAYLOAD_FORMAT_PROTOBUF"
-            And Test Agent sets UPayload "payload" field "value" equal to "bytes" "serialized protobuf data"
+            And sets "upayload" field "format" equal to "upayload_format" "UPAYLOAD_FORMAT_PROTOBUF"
+            And sets "upayload" field "value" equal to "bytes" "serialized protobuf data"
         
         When Test Agent "<uE1>" executes "send" on given UUri
         Then Test Agent "<uE1>" receives an "OK" status for latest execute
@@ -71,17 +73,18 @@ Feature: Test Agents testing messaging to each other and internal UTransport wit
 
     Scenario Outline: Testing if registered Test Agent listener will receive sent message via SocketUTransport
 
-        Given Test Agent sets UEntity "entity" field "name" equal to "string" "body.access"  
-            And Test Agent sets UResource "resource" field "name" equal to "string" "door" 
-            And Test Agent sets UResource "resource" field "instance" equal to "string" "front_left" 
-            And Test Agent sets UResource "resource" field "message" equal to "string" "Door" 
-            And Test Agent sets UUri "uuri" field "entity" equal to created protobuf "entity"
-            And Test Agent sets UUri "uuri" field "resource" equal to created protobuf "resource"
+        Given Test Agent "<uE1>" begins "sendandregister" test
+            And sets "uentity" field "name" equal to "string" "body.access"  
+            And sets "uresource" field "name" equal to "string" "door" 
+            And sets "uresource" field "instance" equal to "string" "front_left" 
+            And sets "uresource" field "message" equal to "string" "Door" 
+            And sets "uuri" field "entity" equal to "protobuf" "entity"
+            And sets "uuri" field "resource" equal to "protobuf" "resource"
 
-            And Test Agent sets UAttributes "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
+            And sets "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
 
-            And Test Agent sets UPayload "payload" field "format" equal to "upayload_format" "UPAYLOAD_FORMAT_PROTOBUF"
-            And Test Agent sets UPayload "payload" field "value" equal to "bytes" "serialized protobuf data"
+            And sets "upayload" field "format" equal to "upayload_format" "UPAYLOAD_FORMAT_PROTOBUF"
+            And sets "upayload" field "value" equal to "bytes" "serialized protobuf data"
         
         When Test Agent "<uE1>" executes "registerlistener" on given UUri
             And Test Agent "<uE2>" executes "send" on given UUri
@@ -96,17 +99,18 @@ Feature: Test Agents testing messaging to each other and internal UTransport wit
         | java    | python |
 
     Scenario Outline: Testing Test Agent's invoke_method() request with respective response
-        Given Test Agent sets UEntity "entity" field "name" equal to "string" "body.access"  
-            And Test Agent sets UResource "resource" field "name" equal to "string" "door" 
-            And Test Agent sets UResource "resource" field "instance" equal to "string" "front_left" 
-            And Test Agent sets UResource "resource" field "message" equal to "string" "Door" 
-            And Test Agent sets UUri "uuri" field "entity" equal to created protobuf "entity"
-            And Test Agent sets UUri "uuri" field "resource" equal to created protobuf "resource"
+        Given Test Agent "<uE1>" begins "invokemethod" test
+            And sets "uentity" field "name" equal to "string" "body.access"  
+            And sets "uresource" field "name" equal to "string" "door" 
+            And sets "uresource" field "instance" equal to "string" "front_left" 
+            And sets "uresource" field "message" equal to "string" "Door" 
+            And sets "uuri" field "entity" equal to "protobuf" "entity"
+            And sets "uuri" field "resource" equal to "protobuf" "resource"
 
-            And Test Agent sets UAttributes "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
+            And sets "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
 
-            And Test Agent sets UPayload "payload" field "format" equal to "upayload_format" "UPAYLOAD_FORMAT_PROTOBUF"
-            And Test Agent sets UPayload "payload" field "value" equal to "bytes" "serialized protobuf data"
+            And sets "upayload" field "format" equal to "upayload_format" "UPAYLOAD_FORMAT_PROTOBUF"
+            And sets "upayload" field "value" equal to "bytes" "serialized protobuf data"
         
         When Test Agent "<uE1>" executes "invokemethod" on given UUri
 
@@ -119,18 +123,19 @@ Feature: Test Agents testing messaging to each other and internal UTransport wit
 
     Scenario Outline: Testing Test Agent's invoke_method() subscribes to the responded UMessage topic
 
-        Given Test Agent sets UEntity "entity" field "name" equal to "string" "body.access"  
-            And Test Agent sets UResource "resource" field "name" equal to "string" "door" 
-            And Test Agent sets UResource "resource" field "instance" equal to "string" "front_left" 
-            And Test Agent sets UResource "resource" field "message" equal to "string" "Door" 
+        Given Test Agent "<uE1>" begins "invokemethod" test
+            And sets "uentity" field "name" equal to "string" "body.access"  
+            And sets "uresource" field "name" equal to "string" "door" 
+            And sets "uresource" field "instance" equal to "string" "front_left" 
+            And sets "uresource" field "message" equal to "string" "Door" 
 
-            And Test Agent sets UUri "uuri" field "entity" equal to created protobuf "entity"
-            And Test Agent sets UUri "uuri" field "resource" equal to created protobuf "resource"
+            And sets "uuri" field "entity" equal to "protobuf" "entity"
+            And sets "uuri" field "resource" equal to "protobuf" "resource"
 
-            And Test Agent sets UAttributes "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
+            And sets "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
 
-            And Test Agent sets UPayload "payload" field "format" equal to "upayload_format" "UPAYLOAD_FORMAT_PROTOBUF"
-            And Test Agent sets UPayload "payload" field "value" equal to "bytes" "serialized protobuf data"
+            And sets "upayload" field "format" equal to "upayload_format" "UPAYLOAD_FORMAT_PROTOBUF"
+            And sets "upayload" field "value" equal to "bytes" "serialized protobuf data"
 
         When Test Agent "<uE1>" executes "registerlistener" on given UUri
             And Test Agent "<uE2>" executes "invokemethod" on given UUri
