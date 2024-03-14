@@ -44,13 +44,13 @@ Feature: Test Agents testing messaging to each other and internal UTransport wit
         | python  |
         | java    |
 
-    Scenario Outline: Testing Test Manager's send() on given UUri
+    Scenario Outline: Testing Test Agent's send() request with respective response
 
         Given Test Agent sets UEntity "entity" field "name" equal to "string" "body.access"  
             And Test Agent sets UResource "resource" field "name" equal to "string" "door" 
             And Test Agent sets UResource "resource" field "instance" equal to "string" "front_left" 
             And Test Agent sets UResource "resource" field "message" equal to "string" "Door" 
-            
+
             And Test Agent sets UUri "uuri" field "entity" equal to created protobuf "entity"
             And Test Agent sets UUri "uuri" field "resource" equal to created protobuf "resource"
 
@@ -95,8 +95,7 @@ Feature: Test Agents testing messaging to each other and internal UTransport wit
         | python  | python |
         | java    | python |
 
-    Scenario Outline: Testing Test Manager's invoke_method() request sent to Test Agent
-
+    Scenario Outline: Testing Test Agent's invoke_method() request with respective response
         Given Test Agent sets UEntity "entity" field "name" equal to "string" "body.access"  
             And Test Agent sets UResource "resource" field "name" equal to "string" "door" 
             And Test Agent sets UResource "resource" field "instance" equal to "string" "front_left" 

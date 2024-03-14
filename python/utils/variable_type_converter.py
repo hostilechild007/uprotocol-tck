@@ -26,7 +26,7 @@
 import sys
 sys.path.append("../")
 
-from python.utils.proto_format_utils import get_upayload_format
+from uprotocol.proto.upayload_pb2 import UPayloadFormat 
 
 def type_converter(type: str, data: str):
     type = type.lower().strip()
@@ -38,7 +38,7 @@ def type_converter(type: str, data: str):
     elif type in ["str", "string"]:
         return data
     elif type in ["upayload_format"]:
-        return get_upayload_format(data)
+        return UPayloadFormat.Value(data)
     else:
         raise ValueError(f"type_converter() doesn't handle type {type}")
     
