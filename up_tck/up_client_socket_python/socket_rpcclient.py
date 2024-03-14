@@ -35,9 +35,7 @@ from uprotocol.proto.uri_pb2 import UUri
 from uprotocol.proto.uuid_pb2 import UUID
 from uprotocol.rpc.rpcclient import RpcClient
 
-sys.path.append("../")
-
-from python.utils.constants import BYTES_MSG_LENGTH
+from up_tck.python_utils.constants import BYTES_MSG_LENGTH
 
 
 class SocketRPCClient(RpcClient):

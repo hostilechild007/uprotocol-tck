@@ -30,16 +30,15 @@ from threading import Lock
 from threading import Thread
 from typing import Callable, Dict, Tuple
 import git
-sys.path.append("../")
 
 repo = git.Repo('.', search_parent_directories=True)
 sys.path.append(repo.working_tree_dir)
 
-from python.logger.logger import logger
+from up_tck.python_utils.logger import logger
 
-from python.utils.socket_message_processing_utils import receive_socket_data
+from up_tck.python_utils.socket_message_processing_utils import receive_socket_data
 
-from python.utils.constants import DISPATCHER_ADDR
+from up_tck.python_utils.constants import DISPATCHER_ADDR
 
 
 class Dispatcher:

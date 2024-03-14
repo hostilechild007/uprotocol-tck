@@ -47,10 +47,9 @@ from uprotocol.rpc.calloptions import CallOptions
 from uprotocol.transport.builder.uattributesbuilder import UAttributesBuilder
 from uprotocol.uri.factory.uresource_builder import UResourceBuilder
 
-sys.path.append("../")
 
-from python.utils.constants import DISPATCHER_ADDR, BYTES_MSG_LENGTH
-from python.logger.logger import logger
+from up_tck.python_utils.constants import DISPATCHER_ADDR, BYTES_MSG_LENGTH
+from up_tck.python_utils.logger import logger
 
 
 class SocketUTransport(UTransport, RpcClient):

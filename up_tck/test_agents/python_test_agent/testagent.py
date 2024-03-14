@@ -43,16 +43,14 @@ from uprotocol.rpc.rpcmapper import RpcMapper
 from uprotocol.transport.ulistener import UListener
 from uprotocol.rpc.calloptions import CallOptions
 
-sys.path.append("../")
-
-from python.test_agent.transport_layer import TransportLayer
-from python.utils.socket_message_processing_utils import (send_socket_data,
+from up_tck.test_agents.python_test_agent.transport_layer import TransportLayer
+from up_tck.python_utils.socket_message_processing_utils import (send_socket_data,
                                                                                   receive_socket_data, \
     convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, \
     protobuf_to_base64, base64_to_protobuf_bytes, is_json_message, create_json_message)
-from python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, \
+from up_tck.python_utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, \
     UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND, COMMANDS, SERIALIZERS
-from python.logger.logger import logger
+from up_tck.python_utils.logger import logger
 
 
 class SocketTestAgent:

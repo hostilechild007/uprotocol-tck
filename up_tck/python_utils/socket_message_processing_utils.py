@@ -34,10 +34,8 @@ from uprotocol.proto.uri_pb2 import UUri
 from uprotocol.rpc.rpcmapper import RpcMapper
 from uprotocol.cloudevent.serialize.base64protobufserializer import Base64ProtobufSerializer
 
-sys.path.append("../")
-
-from python.logger.logger import logger
-from python.utils.constants import BYTES_MSG_LENGTH
+from up_tck.python_utils import logger
+from up_tck.python_utils.constants import BYTES_MSG_LENGTH
 
 
 def send_socket_data(s: socket.socket, msg: bytes):

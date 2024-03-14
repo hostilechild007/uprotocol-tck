@@ -40,11 +40,9 @@ from uprotocol.proto.umessage_pb2 import UMessage
 from uprotocol.proto.ustatus_pb2 import UStatus
 from uprotocol.rpc.rpcmapper import RpcMapper
 
-sys.path.append("../")
+from up_tck.python_utils.socket_message_processing_utils import receive_socket_data, convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, protobuf_to_base64, base64_to_protobuf_bytes, send_socket_data, is_close_socket_signal, is_json_message
  
-from python.utils.socket_message_processing_utils import receive_socket_data, convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, protobuf_to_base64, base64_to_protobuf_bytes, send_socket_data, is_close_socket_signal, is_json_message
- 
-from python.logger.logger import logger
+from up_tck.python_utils.logger import logger
 
 class SocketTestManager():
     """
@@ -69,6 +67,8 @@ class SocketTestManager():
             utransport (TransportLayer): Real message passing medium (sockets)
         """
         self.received_umessage: UMessage = None
+        
+        self.exit_manager = False
         
         #saves onreceives based on received order
         self.sdk_to_received_onreceives: Dict[str, Deque[UMessage] ]= defaultdict(deque)
@@ -242,9 +242,9 @@ class SocketTestManager():
         Listens for Test Agent Connections and creates a thread to start the init process
         """
         
-        while True:
+        while not self.exit_manager:
             # Wait until some registered file objects or sockets become ready, or the timeout expires.
-            events = self.selector.select()
+            events = self.selector.select(timeout=0)
             for key, mask in events:
                 callback = key.data
                 callback(key.fileobj)
@@ -328,6 +328,7 @@ class SocketTestManager():
         """Close the selector / test manager's server, 
         BUT need to free its individual SDK TA connections using self.close_ta(sdk) first
         """
+        self.exit_manager = True
         self.selector.close()
     
     def close_ta_socket(self, sdk_name: str):

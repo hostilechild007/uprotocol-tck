@@ -46,10 +46,12 @@ import git
 repo = git.Repo('.', search_parent_directories=True)
 sys.path.append(repo.working_tree_dir)
 
-from python.utils.protobuf_setter_utils import set_umessage_fields, set_uuri_fields
-from python.utils.variable_type_converter import type_converter
-from python.utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND, LONG_URI_SERIALIZE, LONG_URI_DESERIALIZE, MICRO_URI_SERIALIZE, MICRO_URI_DESERIALIZE
-from python.test_manager.testmanager import SocketTestManager
+
+
+from up_tck.python_utils.protobuf_setter_utils import set_umessage_fields, set_uuri_fields
+from up_tck.python_utils.variable_type_converter import type_converter
+from up_tck.python_utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND, LONG_URI_SERIALIZE, LONG_URI_DESERIALIZE, MICRO_URI_SERIALIZE, MICRO_URI_DESERIALIZE
+from up_tck.test_manager.testmanager import SocketTestManager
 
 
 @given('Test Agent sets UEntity "{entity}" field "{param}" equal to "{type}" "{value}"')

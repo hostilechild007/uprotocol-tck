@@ -35,14 +35,13 @@ from uprotocol.proto.uri_pb2 import UUri
 from uprotocol.transport.ulistener import UListener
 from uprotocol.transport.builder.uattributesbuilder import  UAttributesBuilder
 
-sys.path.append("../")
 
-from python.test_agent.transport_layer import TransportLayer
-from python.test_agent.testagent import SocketTestAgent
-from python.utils.socket_message_processing_utils import convert_json_to_jsonstring, \
+from up_tck.test_agents.python_test_agent.transport_layer import TransportLayer
+from up_tck.test_agents.python_test_agent.testagent import SocketTestAgent
+from up_tck.python_utils.socket_message_processing_utils import convert_json_to_jsonstring, \
     convert_str_to_bytes, protobuf_to_base64, send_socket_data, create_json_message
-from python.utils.constants import TEST_MANAGER_ADDR
-from python.logger.logger import logger
+from up_tck.python_utils.constants import TEST_MANAGER_ADDR
+from up_tck.python_utils.logger import logger
 
 
 class SocketUListener(UListener):

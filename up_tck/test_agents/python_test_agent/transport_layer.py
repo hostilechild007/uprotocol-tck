@@ -36,11 +36,10 @@ from uprotocol.proto.umessage_pb2 import UMessage
 from uprotocol.transport.ulistener import UListener
 from uprotocol.rpc.calloptions import CallOptions
 
-sys.path.append("../")
 
-from python.up_client_socket_python.socket_utransport import SocketUTransport
+from up_tck.up_client_socket_python.socket_utransport import SocketUTransport
 
-from python.logger.logger import logger
+from up_tck.python_utils.logger import logger
 
 
 class TransportLayer:

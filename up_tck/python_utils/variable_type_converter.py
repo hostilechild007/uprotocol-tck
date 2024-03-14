@@ -23,8 +23,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # -------------------------------------------------------------------------
-import sys
-sys.path.append("../")
 
 from uprotocol.proto.upayload_pb2 import UPayloadFormat 
 

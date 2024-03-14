@@ -33,17 +33,13 @@ import os
 import git
 
 from behave.runner import Context
+from up_tck.test_manager.testmanager import SocketTestManager
 from utils import loggerutils
 
 from uprotocol.proto.ustatus_pb2 import UStatus
 
-sys.path.append("../")
-
-from python.test_manager.testmanager import SocketTestManager
-
-
-PYTHON_TA_PATH = "/python/examples/tck_interoperability/test_socket_ta.py"
-JAVA_TA_PATH = "/java/java_test_agent/target/tck-test-agent-java-jar-with-dependencies.jar"
+PYTHON_TA_PATH = "/up_tck/test_agents/python_test_agent/test_ta.py"
+JAVA_TA_PATH = "/up_tck/test_agents/java_test_agent/target/tck-test-agent-java-jar-with-dependencies.jar"
 
 def get_git_root():
     curr_path = os.getcwd()
@@ -105,7 +101,7 @@ def before_all(context):
     sdk_to_status: Dict[str, UStatus] = {}
     context.sdk_to_status = sdk_to_status
 
-    command = create_command("/python/dispatcher/dispatcher.py")
+    command = create_command("/up_tck/up_client_socket_python/dispatcher/dispatcher.py")
     process: subprocess.Popen = create_subprocess(command)
 
     context.logger.info("Created Dispatcher...")
