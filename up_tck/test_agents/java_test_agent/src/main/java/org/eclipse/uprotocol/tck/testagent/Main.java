@@ -24,7 +24,10 @@
 
 package org.eclipse.uprotocol.tck.testagent;
 
+import org.eclipse.uprotocol.rpc.RpcClient;
 import org.eclipse.uprotocol.tck.up_client_socket_java.SocketUListener;
+import org.eclipse.uprotocol.tck.up_client_socket_java.SocketUTransport;
+import org.eclipse.uprotocol.transport.UTransport;
 import org.json.JSONObject;
 
 import java.io.IOException;
