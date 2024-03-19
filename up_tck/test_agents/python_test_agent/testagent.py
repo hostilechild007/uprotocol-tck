@@ -95,7 +95,6 @@ class SocketTestAgent:
     def _handle_json_message(self, recv_data: bytes, listener: UListener):
         json_str: str = convert_bytes_to_string(recv_data)
         json_msg: Dict[str, str] = convert_jsonstring_to_json(json_str)
-
         if json_msg["action"] in COMMANDS:
             self._handle_command_json(json_msg, listener)
 

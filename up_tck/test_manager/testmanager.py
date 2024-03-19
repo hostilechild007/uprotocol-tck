@@ -30,6 +30,7 @@ import threading
 import re
 from collections import defaultdict
 from typing import Deque, Dict, List
+from typing import Any as AnyType
 from google.protobuf.any_pb2 import Any
 from multimethod import multimethod
 from collections import deque
@@ -39,7 +40,7 @@ from uprotocol.proto.umessage_pb2 import UMessage
 from uprotocol.proto.ustatus_pb2 import UStatus
 from uprotocol.rpc.rpcmapper import RpcMapper
 
-from up_tck.python_utils.socket_message_processing_utils import receive_socket_data, convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, protobuf_to_base64, base64_to_protobuf_bytes, send_socket_data, is_close_socket_signal, is_json_message
+from up_tck.python_utils.socket_message_processing_utils import create_json_message, receive_socket_data, convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, protobuf_to_base64, base64_to_protobuf_bytes, send_socket_data, is_close_socket_signal, is_json_message
 
 from up_tck.python_utils.logger import logger
 
@@ -331,6 +332,7 @@ class SocketTestManager():
         }
         self._send_to_test_agent(test_agent_socket, json_message)
 
+    @multimethod
     def request(self, sdk_ta_destination: str, command: str, message: UMessage) -> UStatus:
         """Sends different requests to a specific SDK Test Agent
 
@@ -347,6 +349,33 @@ class SocketTestManager():
         test_agent_socket: socket.socket = self.sdk_to_test_agent_socket[sdk_ta_destination]
 
         self._send_to_test_agent(test_agent_socket, command, message)
+
+        status: UStatus = self.__pop_status(sdk_ta_destination)
+        return status
+
+    @multimethod
+    def request(self, sdk_ta_destination: str, command: str, message: Dict[str, AnyType]) -> UStatus:
+        """Sends Test JSON data for all requests to a specific SDK Test Agent
+
+        Args:
+            sdk_ta_destination (str): SDK Test Agent
+            command (str): send, registerlistener, unregisterlistener, invokemethod
+            message (Dict): message data to send to the SDK Test Agent
+
+        Returns:
+            UStatus: response Status
+        """
+        sdk_ta_destination = sdk_ta_destination.lower().strip()
+
+        test_agent_socket: socket.socket = self.sdk_to_test_agent_socket[sdk_ta_destination]
+        
+        test_json_message: Dict[str, str] = create_json_message(command, convert_json_to_jsonstring(message))
+
+        logger.info("NEW REQUEST multimethod")
+        logger.info(f"{test_json_message}")
+        logger.info(f"{type(test_json_message)}")
+
+        self._send_to_test_agent(test_agent_socket, test_json_message)
 
         status: UStatus = self.__pop_status(sdk_ta_destination)
         return status

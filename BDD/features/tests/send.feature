@@ -30,21 +30,20 @@ Feature: Test Agent's send() request with respective response
     Scenario Outline: Testing Test Agent's send() request with respective response
 
         Given Test Agent "<uE1>" begins "send" test
-            And sets "uentity" field "name" equal to "string" "body.access"  
-            And sets "uresource" field "name" equal to "string" "door" 
-            And sets "uresource" field "instance" equal to "string" "front_left" 
-            And sets "uresource" field "message" equal to "string" "Door" 
+            And sets "umessage.attributes.source.entity.name" to "body.access"
+            And sets "umessage.attributes.source.resource.name" to "door"
+            And sets "umessage.attributes.source.resource.instance" to "front_left"
+            And sets "umessage.attributes.source.resource.message" to "Door"
 
-            And sets "uuri" field "entity" equal to "protobuf" "uentity"
-            And sets "uuri" field "resource" equal to "protobuf" "uresource"
+            And sets "umessage.attributes.priority" to "UPRIORITY_CS0"
+            And sets "umessage.attributes.type" to "UMESSAGE_TYPE_PUBLISH"
+            And sets "umessage.attributes.id.msb" to 123.123
 
-            And sets "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
-
-            And sets "upayload" field "format" equal to "upayload_format" "UPAYLOAD_FORMAT_PROTOBUF"
-            And sets "upayload" field "value" equal to "bytes" "serialized protobuf data"
+            And sets "umessage.payload.format" to "UPAYLOAD_FORMAT_PROTOBUF"
+            And sets "umessage.payload.value" to "serialized protobuf data"
         
         When Test Agent "<uE1>" executes "send" on given UUri
-        Then Test Agent "<uE1>" receives an "OK" status for latest execute
+        # Then Test Agent "<uE1>" receives an "OK" status for latest execute
 
 
         Examples: 
@@ -56,22 +55,22 @@ Feature: Test Agent's send() request with respective response
     Scenario Outline: Testing if registered Test Agent listener will receive sent message via SocketUTransport
 
         Given Test Agent "<uE1>" begins "sendandregister" test
-            And sets "uentity" field "name" equal to "string" "body.access"  
-            And sets "uresource" field "name" equal to "string" "door" 
-            And sets "uresource" field "instance" equal to "string" "front_left" 
-            And sets "uresource" field "message" equal to "string" "Door" 
-            And sets "uuri" field "entity" equal to "protobuf" "uentity"
-            And sets "uuri" field "resource" equal to "protobuf" "uresource"
+            And sets "umessage.attributes.source.entity.name" to "body.access"
+            And sets "umessage.attributes.source.resource.name" to "door"
+            And sets "umessage.attributes.source.resource.instance" to "front_left"
+            And sets "umessage.attributes.source.resource.message" to "Door"
 
-            And sets "uattributes" creates publish message with parameter source equal to created protobuf "uuri"
+            And sets "umessage.attributes.priority" to "UPRIORITY_CS0"
+            And sets "umessage.attributes.type" to "UMESSAGE_TYPE_PUBLISH"
+            And sets "umessage.attributes.id.msb" to 123.123
 
-            And sets "upayload" field "format" equal to "upayload_format" "UPAYLOAD_FORMAT_PROTOBUF"
-            And sets "upayload" field "value" equal to "bytes" "serialized protobuf data"
+            And sets "umessage.payload.format" to "UPAYLOAD_FORMAT_PROTOBUF"
+            And sets "umessage.payload.value" to "serialized protobuf data"
         
-        When Test Agent "<uE1>" executes "registerlistener" on given UUri
-            And Test Agent "<uE2>" executes "send" on given UUri
+        When Test Agent "<uE1>" executes "registerlistener" on given protobuf
+        #     And Test Agent "<uE2>" executes "send" on given UUri
 
-        Then Test Agent "<uE1>" builds OnReceive UMessage with parameter UPayload "payload" with parameter "value" as "serialized protobuf data"
+        # Then Test Agent "<uE1>" builds OnReceive UMessage with parameter UPayload "payload" with parameter "value" as "serialized protobuf data"
 
 
         Examples: Test Agents

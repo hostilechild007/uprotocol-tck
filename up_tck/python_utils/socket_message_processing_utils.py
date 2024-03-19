@@ -26,8 +26,8 @@
 
 import json
 import socket
-from typing import Dict
-
+from typing import Dict 
+from typing import Any as AnyType
 from google.protobuf.any_pb2 import Any
 from uprotocol.proto.uri_pb2 import UUri
 from uprotocol.rpc.rpcmapper import RpcMapper
@@ -66,7 +66,7 @@ def convert_jsonstring_to_json(jsonstring: str) -> Dict[str, str]:
     return json.loads(jsonstring)
 
 
-def convert_json_to_jsonstring(j: Dict[str, str]) -> str:
+def convert_json_to_jsonstring(j: Dict[str, AnyType]) -> str:
     return json.dumps(j)
 
 

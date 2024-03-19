@@ -46,6 +46,7 @@ from uprotocol.proto.uattributes_pb2 import UAttributes, UPriority
 from uprotocol.proto.umessage_pb2 import UMessage
 from uprotocol.transport.builder.uattributesbuilder import UAttributesBuilder
 
+from BDD.features.steps.parser import set_inner_protobuf_fields_in_json
 
 repo = git.Repo('.', search_parent_directories=True)
 sys.path.append(repo.working_tree_dir)
@@ -54,7 +55,31 @@ sys.path.append(repo.working_tree_dir)
 @given('Test Agent "{sdk_name}" begins "{command}" test')
 def begin_test(context, sdk_name: str, command: str):
     context.logger.info(f"sdk_name: {sdk_name}; command: {command}")
+    
+    # given this line starts 1st, we initialize empty json so following Givens can setup data to test
+    context.initialized_json_data = {}
 
+@given(u'sets "{protobuf_fields}" to "{value}"')
+def string_value_json_data_setup(context, protobuf_fields: str, value: str):
+    # sets recursive protobuf fields
+    set_inner_protobuf_fields_in_json(protobuf_fields, value, context.initialized_json_data)
+
+@given('sets "{protobuf_fields}" to {value:d}')  
+def integer_value_json_data_setup(context, protobuf_fields: str, value: int):
+    # sets recursive protobuf fields
+    set_inner_protobuf_fields_in_json(protobuf_fields, value, context.initialized_json_data)
+
+@given('sets "{protobuf_fields}" to {value:f}')  
+def float_value_json_data_setup(context, protobuf_fields: str, value: float):
+    # sets recursive protobuf fields
+    set_inner_protobuf_fields_in_json(protobuf_fields, value, context.initialized_json_data)
+
+# @given(u'sets "{protobuf_fields}" to b"{value}"')
+# def bytes_value_json_data_setup(context, protobuf_fields: str, value: str):
+#     # sets recursive protobuf fields
+#     context.logger.info(f"value: {value} {type(value)}")
+    
+#     set_inner_protobuf_fields_in_json(protobuf_fields, value, context.initialized_json_data)
 
 @given('sets "{uattr}" creates publish message with parameter source equal to created protobuf "{value}"')
 def initialize_attribute_protobuf(context, uattr: str, value: str):
@@ -89,28 +114,9 @@ def initialize_generic_protobuf(context, field: str, param: str, type: str, valu
         setattr(context.initialized_data[field], param, type_converter(type, value))
 
 
-@when('Test Agent "{sdk_name}" executes "{command}" on given UUri')
+@when('Test Agent "{sdk_name}" executes "{command}" on given protobuf')
 def tm_sends_request(context, command: str, sdk_name: str):
     command = command.lower().strip()
-    umsg: UMessage = UMessage()
-
-    if command in [REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND]:
-        uuri: UUri = context.initialized_data["source"]
-
-        attributes: UAttributes = UAttributesBuilder.publish(uuri, UPriority.UPRIORITY_CS1).build()
-
-        set_umessage_fields(umsg, "attributes", attributes)
-
-    elif command in [SEND_COMMAND, INVOKE_METHOD_COMMAND]:
-        uuri: UUri = context.initialized_data["source"]
-
-        uattr_builder: UAttributesBuilder = context.initialized_data["attributes"]
-        attributes: UAttributes = uattr_builder.build()
-
-        upayload: UPayload = context.initialized_data["payload"]
-
-        set_umessage_fields(umsg, "attributes", attributes)
-        set_umessage_fields(umsg, "payload", upayload)
 
     # Wait until TA is connected
     while not context.tm.has_sdk_connection(sdk_name):
@@ -119,12 +125,15 @@ def tm_sends_request(context, command: str, sdk_name: str):
     test_manager: SocketTestManager = context.tm
     context.logger.info(f"sdk_name: {sdk_name}; command: {command}")
 
-    status: UStatus = test_manager.request(sdk_name, command, umsg)
+    context.logger.info("context.initialized_json_data:")
+    context.logger.info(context.initialized_json_data)
+    
+    status: UStatus = test_manager.request(sdk_name, command, context.initialized_json_data)
     context.sdk_to_status[sdk_name] = status
 
     context.logger.info("context.sdk_to_status:")
     context.logger.info(context.sdk_to_status[sdk_name])
-
+    
 
 @then('Test Agent "{sdk_name}" receives an "{status_code}" status for latest execute')
 def tm_receives_response(context, status_code: str, sdk_name: str):
