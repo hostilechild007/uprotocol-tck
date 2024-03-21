@@ -48,8 +48,7 @@ from up_tck.python_utils.socket_message_processing_utils import send_socket_data
                                                                 convert_jsonstring_to_json, convert_str_to_bytes, \
                                                                 protobuf_to_base64, base64_to_protobuf_bytes, \
                                                                 is_json_message, create_json_message
-from up_tck.python_utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, \
-    UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND, COMMANDS
+from up_tck.python_utils.constants import UTransportRequestCommand, SerializationRequestCommand
 from up_tck.python_utils.logger import logger
 
 
@@ -95,12 +94,17 @@ class SocketTestAgent:
     def _handle_json_message(self, recv_data: bytes, listener: UListener):
         json_str: str = convert_bytes_to_string(recv_data)
         json_msg: Dict[str, str] = convert_jsonstring_to_json(json_str)
-        if json_msg["action"] in COMMANDS:
+        if json_msg["action"] in UTransportRequestCommand.COMMANDS.value:
             self._handle_command_json(json_msg, listener)
+        elif json_msg["action"] in SerializationRequestCommand.SERIALIZERS.value:
+            logger.info(f"SerializationRequestCommand json: {json_msg}")
+            # logger.info(f"SerializationRequestCommand message: {json_msg["message"]}")
 
     def _handle_command_json(self, json_msg: Dict[str, str], listener: UListener):
         action: str = json_msg["action"]
         umsg_base64: str = json_msg["message"]
+        
+        logger.info(f"command message: {umsg_base64}")
         protobuf_serialized_data: bytes = base64_to_protobuf_bytes(umsg_base64)
 
         received_proto: UMessage = RpcMapper.unpack_payload(
@@ -112,14 +116,14 @@ class SocketTestAgent:
         source: UUri = received_proto.attributes.source
         payload: UPayload = received_proto.payload
         status: UStatus = None
-        if action == SEND_COMMAND:
+        if action == UTransportRequestCommand.SEND.value:
             status = self.utransport.send(received_proto)
-        elif action == REGISTER_LISTENER_COMMAND:
+        elif action == UTransportRequestCommand.REGISTER_LISTENER.value:
             status = self.utransport.register_listener(source, listener)
-        elif action == UNREGISTER_LISTENER_COMMAND:
+        elif action == UTransportRequestCommand.UNREGISTER_LISTENER.value:
             status = self.utransport.unregister_listener(
                 received_proto.attributes.source, listener)
-        elif action == INVOKE_METHOD_COMMAND:
+        elif action == UTransportRequestCommand.INVOKE_METHOD.value:
             future_umsg: Future = self.utransport.invoke_method(
                 source, payload, CallOptions())
 
@@ -128,7 +132,7 @@ class SocketTestAgent:
             status = UStatus(code=UCode.OK, message="OK")
         self.send(status)
 
-        if action == INVOKE_METHOD_COMMAND:
+        if action == UTransportRequestCommand.INVOKE_METHOD.value:
             # Wait for response, and if havent gotten response in 10 sec then continue
 
             # When got response, sub/reg waits until Future is completed/filled

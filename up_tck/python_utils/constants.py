@@ -23,24 +23,30 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # -------------------------------------------------------------------------
+from enum import Enum
 
-SEND_COMMAND: str = "send"
-REGISTER_LISTENER_COMMAND: str = "registerlistener"
-UNREGISTER_LISTENER_COMMAND: str = "unregisterlistener"
-INVOKE_METHOD_COMMAND: str = "invokemethod"
-COMMANDS = set([SEND_COMMAND, REGISTER_LISTENER_COMMAND, UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND])
+
+class UTransportRequestCommand(Enum):
+    SEND: str = "send"
+    REGISTER_LISTENER: str = "registerlistener"
+    UNREGISTER_LISTENER: str = "unregisterlistener"
+    INVOKE_METHOD: str = "invokemethod"
+    COMMANDS = set([SEND, REGISTER_LISTENER, UNREGISTER_LISTENER, INVOKE_METHOD])
 
 DISPATCHER_ADDR: tuple = ("127.0.0.1", 44444)
 TEST_MANAGER_ADDR: tuple = ("127.0.0.5", 12345)
 BYTES_MSG_LENGTH: int = 32767
 
-LONG_URI_SERIALIZE: str = "longuriserialize"
-LONG_URI_DESERIALIZE: str = "longurideserialize"
-MICRO_URI_SERIALIZE: str = "microuriserialize"
-MICRO_URI_DESERIALIZE: str = "microurideserialize"
-SERIALIZERS = set([LONG_URI_SERIALIZE, LONG_URI_DESERIALIZE, MICRO_URI_SERIALIZE, MICRO_URI_DESERIALIZE])
 
-LONG_URI_SERIALIZE_RESPONSE: str = "longuriserialize_response"
-LONG_URI_DESERIALIZE_RESPONSE: str = "longurideserialize_response"
-MICRO_URI_SERIALIZE_RESPONSE: str = "microuriserialize_response"
-MICRO_URI_DESERIALIZE_RESPONSE: str = "microurideserialize_response"
+class SerializationRequestCommand(Enum):
+    LONG_URI_SERIALIZE: str = "longuriserialize"
+    LONG_URI_DESERIALIZE: str = "longurideserialize"
+    MICRO_URI_SERIALIZE: str = "microuriserialize"
+    MICRO_URI_DESERIALIZE: str = "microurideserialize"
+    SERIALIZERS = set([LONG_URI_SERIALIZE, LONG_URI_DESERIALIZE, MICRO_URI_SERIALIZE, MICRO_URI_DESERIALIZE])
+
+class SerializationResponseCommand(Enum):
+    LONG_URI_SERIALIZE_RESPONSE: str = "longuriserialize_response"
+    LONG_URI_DESERIALIZE_RESPONSE: str = "longurideserialize_response"
+    MICRO_URI_SERIALIZE_RESPONSE: str = "microuriserialize_response"
+    MICRO_URI_DESERIALIZE_RESPONSE: str = "microurideserialize_response"

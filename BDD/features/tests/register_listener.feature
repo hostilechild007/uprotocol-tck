@@ -29,10 +29,10 @@ Feature: Test Agents testing messaging to each other and internal UTransport wit
     Scenario Outline: Test Agent's registerlistener() on given UUri
         Given Test Agent "<uE1>" begins "registerlistener" test
         
-            And sets "uri.entity.name" to "body.access"
-            And sets "uri.resource.name" to "door"
-            And sets "uri.resource.instance" to "front_left"
-            And sets "uri.resource.message" to "Door"
+            And sets "umessage.attributes.source.entity.name" to "body.access"
+            And sets "umessage.attributes.source.resource.name" to "door"
+            And sets "umessage.attributes.source.resource.instance" to "front_left"
+            And sets "umessage.attributes.source.resource.message" to "Door"
         
         When Test Agent "<uE1>" executes "registerlistener" on given protobuf
         # Then Test Agent "<uE1>" receives an "OK" status for latest execute

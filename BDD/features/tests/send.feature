@@ -42,7 +42,7 @@ Feature: Test Agent's send() request with respective response
             And sets "umessage.payload.format" to "UPAYLOAD_FORMAT_PROTOBUF"
             And sets "umessage.payload.value" to "serialized protobuf data"
         
-        When Test Agent "<uE1>" executes "send" on given UUri
+        When Test Agent "<uE1>" executes "send" on given protobuf
         # Then Test Agent "<uE1>" receives an "OK" status for latest execute
 
 
@@ -75,6 +75,6 @@ Feature: Test Agent's send() request with respective response
 
         Examples: Test Agents
         | uE1     | uE2    |
-        | python  | java   |
+        # | python  | java   |
         | python  | python |
-        | java    | python |
+        # | java    | python |

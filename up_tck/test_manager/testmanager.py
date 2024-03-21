@@ -29,7 +29,7 @@ import selectors
 import threading
 import re
 from collections import defaultdict
-from typing import Deque, Dict, List
+from typing import Deque, Dict, List, Union
 from typing import Any as AnyType
 from google.protobuf.any_pb2 import Any
 from multimethod import multimethod
@@ -43,6 +43,8 @@ from uprotocol.rpc.rpcmapper import RpcMapper
 from up_tck.python_utils.socket_message_processing_utils import create_json_message, receive_socket_data, convert_bytes_to_string, convert_json_to_jsonstring, convert_jsonstring_to_json, convert_str_to_bytes, protobuf_to_base64, base64_to_protobuf_bytes, send_socket_data, is_close_socket_signal, is_json_message
 
 from up_tck.python_utils.logger import logger
+from up_tck.test_manager.DictWithQueueValues import DictWithQueueValues
+from up_tck.test_manager.TestMangerSender import TestManagerSender
 
 
 class SocketTestManager():
@@ -71,26 +73,20 @@ class SocketTestManager():
 
         logger.info("Beginning Test Manager...")
 
-        self.received_umessage: UMessage = None
-
         self.exit_manager = False
 
         # saves onreceives based on received order
-        logger.info("Initializing Test Manager Maps...")
-        self.sdk_to_received_onreceives: Dict[str,
-                                              Deque[UMessage]] = defaultdict(deque)
-        self.sdk_to_received_onreceives_lock = threading.Lock()
+        self.onreceive_umsgs: DictWithQueueValues = DictWithQueueValues()
 
         # Bc every sdk connection is unqiue, map the socket connection.
         self.sdk_to_test_agent_socket: Dict[str, socket.socket] = defaultdict(
             socket.socket)
         self.sdk_to_test_agent_socket_lock = threading.Lock()
-
-        self.sdk_to_received_ustatus: Dict[str, UStatus] = defaultdict(
-            lambda: None)  # maybe thread safe
-        self.sdk_to_received_ustatus_lock = threading.Lock()
-
         self.sock_addr_to_sdk: Dict[tuple[str, int], str] = defaultdict(str)
+
+        self.received_ustatus: DictWithQueueValues = DictWithQueueValues()
+        
+        self.received_serialization_translation = DictWithQueueValues()
 
         logger.info("Initializing Test Manager Maps...Done")
         logger.info("Creating Test Manager Server Socket...")
@@ -201,7 +197,8 @@ class SocketTestManager():
             status: UStatus = RpcMapper.unpack_payload(
                 Any(value=protobuf_serialized_data), UStatus)
 
-            self.__save_status(sdk, status)
+            # self.__save_status(sdk, status)
+            self.received_ustatus.append(sdk, status)
 
         elif "action" in json_msg and json_msg["action"] == "onReceive":
             # Update status if received UStatus message
@@ -211,11 +208,8 @@ class SocketTestManager():
             onreceive_umsg: UMessage = RpcMapper.unpack_payload(
                 Any(value=protobuf_serialized_data), UMessage)
 
-            with self.sdk_to_received_onreceives_lock:
-                self.sdk_to_received_onreceives[sdk].append(onreceive_umsg)
-
-            self.received_umessage = onreceive_umsg
-
+            self.onreceive_umsgs.append(sdk, onreceive_umsg)
+            
             logger.info(
                 "---------------------OnReceive response from Test Agent!----------------------------")
             logger.info(onreceive_umsg)
@@ -225,23 +219,6 @@ class SocketTestManager():
         else:
             raise Exception(
                 "new client connection didn't initally send sdk name")
-
-    def __save_status(self, sdk_name: str, status: UStatus):
-        # NEED SEMAPHORE for each sdk so dont overwrite a status
-        self.sdk_to_received_ustatus_lock.acquire()
-        self.sdk_to_received_ustatus[sdk_name] = status
-        self.sdk_to_received_ustatus_lock.release()
-
-    def __pop_status(self, sdk_name: str) -> UStatus:
-        # Block until received ustatus
-        while self.sdk_to_received_ustatus[sdk_name] is None:
-            continue
-
-        self.sdk_to_received_ustatus_lock.acquire()
-        status: UStatus = self.sdk_to_received_ustatus.pop(sdk_name)
-        self.sdk_to_received_ustatus_lock.release()
-
-        return status
 
     def has_sdk_connection(self, sdk_name: str) -> bool:
         if sdk_name == "self":
@@ -254,16 +231,7 @@ class SocketTestManager():
         Returns:
             UMessage: onReceive protobuf message
         """
-
-        # Blocks till get an onreceive
-        while len(self.sdk_to_received_onreceives[sdk_name]) == 0:
-            continue
-
-        with self.sdk_to_received_onreceives_lock:
-            onreceive: UMessage = self.sdk_to_received_onreceives[sdk_name].popleft(
-            )
-
-        return onreceive
+        return self.onreceive_umsgs.popleft(sdk_name)
 
     def listen_for_client_connections(self):
         """
@@ -276,62 +244,7 @@ class SocketTestManager():
             for key, mask in events:
                 callback = key.data
                 callback(key.fileobj)
-
-    @multimethod
-    def _send_to_test_agent(self, test_agent_socket: socket.socket, json_message: Dict[str, str]):
-
-        json_message_str: str = convert_json_to_jsonstring(json_message)
-
-        message: bytes = convert_str_to_bytes(json_message_str)
-
-        send_socket_data(test_agent_socket, message)
-
-    @multimethod
-    def _send_to_test_agent(self, test_agent_socket: socket.socket, command: str, umsg: UMessage):
-        """ Contains data preprocessing and sending UMessage steps to Test Agent
-
-        Args:
-            test_agent_socket (socket.socket): Test Agent Socket
-            command (str): message's action-type
-            umsg (UMessage): the raw protobuf message
-        """
-        json_message = {
-            "action": command,
-            "message": protobuf_to_base64(umsg)
-        }
-
-        self._send_to_test_agent(test_agent_socket, json_message)
-
-    @multimethod
-    def _send_to_test_agent(self, test_agent_socket: socket.socket, command: str, uri: UUri):
-        """ For uri serializer (serialize/deserialize) mostly
-        """
-        json_message = {
-            "action": command,
-            "message": protobuf_to_base64(uri)
-        }
-        self._send_to_test_agent(test_agent_socket, json_message)
-
-    @multimethod
-    def _send_to_test_agent(self, test_agent_socket: socket.socket, command: str, protobuf_serialized: str):
-        """ For uri serializer (serialize/deserialize) mostly
-        """
-        json_message = {
-            "action": command,
-            "message": protobuf_serialized
-        }
-        self._send_to_test_agent(test_agent_socket, json_message)
-
-    @multimethod
-    def _send_to_test_agent(self, test_agent_socket: socket.socket, command: str, protobuf_serialized: bytearray):
-        """ For uri serializer (serialize/deserialize) mostly
-        """
-        json_message = {
-            "action": command,
-            "message": protobuf_serialized.decode()
-        }
-        self._send_to_test_agent(test_agent_socket, json_message)
-
+    
     @multimethod
     def request(self, sdk_ta_destination: str, command: str, message: UMessage) -> UStatus:
         """Sends different requests to a specific SDK Test Agent
@@ -348,9 +261,11 @@ class SocketTestManager():
 
         test_agent_socket: socket.socket = self.sdk_to_test_agent_socket[sdk_ta_destination]
 
-        self._send_to_test_agent(test_agent_socket, command, message)
+        TestManagerSender().send_to_test_agent(test_agent_socket, command, message)
+        
+        # status: UStatus = self.__pop_status(sdk_ta_destination)
+        status: UStatus = self.received_ustatus.popleft(sdk_ta_destination)
 
-        status: UStatus = self.__pop_status(sdk_ta_destination)
         return status
 
     @multimethod
@@ -371,14 +286,33 @@ class SocketTestManager():
         
         test_json_message: Dict[str, str] = create_json_message(command, convert_json_to_jsonstring(message))
 
-        logger.info("NEW REQUEST multimethod")
-        logger.info(f"{test_json_message}")
-        logger.info(f"{type(test_json_message)}")
+        TestManagerSender().send_to_test_agent(test_agent_socket, test_json_message)
 
-        self._send_to_test_agent(test_agent_socket, test_json_message)
+        # status: UStatus = self.__pop_status(sdk_ta_destination)
+        status: UStatus = self.received_ustatus.popleft(sdk_ta_destination)
 
-        status: UStatus = self.__pop_status(sdk_ta_destination)
         return status
+    
+    def serialization_request(self, sdk_ta_destination: str, command: str, message: Dict[str, AnyType]) -> Union[str, bytearray]:
+        """Sends serialzation request using protobuf in JSON format
+        
+        Args:
+            sdk_ta_destination (str): SDK Test Agent
+            command (str): send, registerlistener, unregisterlistener, invokemethod
+            message (Dict): message data to send to the SDK Test Agent
+        """
+        sdk_ta_destination = sdk_ta_destination.lower().strip()
+
+        test_agent_socket: socket.socket = self.sdk_to_test_agent_socket[sdk_ta_destination]
+        
+        test_json_message: Dict[str, str] = create_json_message(command, convert_json_to_jsonstring(message))
+        
+        logger.info(f"test_json_message: {test_json_message}")
+        
+        TestManagerSender().send_to_test_agent(test_agent_socket, test_json_message)
+        
+        translation: Union[str, bytearray] = self.received_serialization_translation.popleft()
+        return translation
 
     def close(self):
         """Close the selector / test manager's server,

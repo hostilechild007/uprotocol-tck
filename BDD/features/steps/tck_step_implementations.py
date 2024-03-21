@@ -24,15 +24,17 @@
 #
 # -------------------------------------------------------------------------
 
+from typing import Union
+from typing import Any as AnyType
 from behave import when, then, given
 from hamcrest import assert_that, equal_to
 import sys
 import git
+from multimethod import multimethod
 
 from up_tck.python_utils.protobuf_setter_utils import set_umessage_fields, set_uuri_fields
 from up_tck.python_utils.variable_type_converter import type_converter
-from up_tck.python_utils.constants import SEND_COMMAND, REGISTER_LISTENER_COMMAND, \
-    UNREGISTER_LISTENER_COMMAND, INVOKE_METHOD_COMMAND
+from up_tck.python_utils.constants import UTransportRequestCommand, SerializationRequestCommand
 from up_tck.test_manager.testmanager import SocketTestManager
 
 from google.protobuf.any_pb2 import Any
@@ -114,6 +116,24 @@ def initialize_generic_protobuf(context, field: str, param: str, type: str, valu
         setattr(context.initialized_data[field], param, type_converter(type, value))
 
 
+def send_request(context, command: str, sdk_name: str, data: AnyType):
+    test_manager: SocketTestManager = context.tm
+    
+    if command in SerializationRequestCommand.SERIALIZERS.value:
+        translation: Union[str, bytearray] = test_manager.serialization_request(sdk_name, command, data)
+        context.logger.info(f"translation: {translation}")
+        
+    elif command in UTransportRequestCommand.COMMANDS.value:
+        status: UStatus = test_manager.request(sdk_name, command, data)
+        context.sdk_to_status[sdk_name] = status
+
+        context.logger.info("context.sdk_to_status:")
+        context.logger.info(context.sdk_to_status[sdk_name])
+    else:
+        raise ValueError(f"Command {command} within .feature file is NOT handled")
+
+
+@multimethod
 @when('Test Agent "{sdk_name}" executes "{command}" on given protobuf')
 def tm_sends_request(context, command: str, sdk_name: str):
     command = command.lower().strip()
@@ -121,19 +141,27 @@ def tm_sends_request(context, command: str, sdk_name: str):
     # Wait until TA is connected
     while not context.tm.has_sdk_connection(sdk_name):
         continue
-
-    test_manager: SocketTestManager = context.tm
+    
     context.logger.info(f"sdk_name: {sdk_name}; command: {command}")
-
     context.logger.info("context.initialized_json_data:")
     context.logger.info(context.initialized_json_data)
     
-    status: UStatus = test_manager.request(sdk_name, command, context.initialized_json_data)
-    context.sdk_to_status[sdk_name] = status
+    send_request(context, command, sdk_name, context.initialized_json_data)
 
-    context.logger.info("context.sdk_to_status:")
-    context.logger.info(context.sdk_to_status[sdk_name])
+@multimethod
+@when('Test Agent "{sdk_name}" executes "{command}" on {serialized_data}')
+def tm_sends_request(context, command: str, sdk_name: str, serialized_data: str):
+    command = command.lower().strip()
+
+    # Wait until TA is connected
+    while not context.tm.has_sdk_connection(sdk_name):
+        continue
     
+    context.logger.info(f"sdk_name: {sdk_name}; command: {command}")
+    context.logger.info("context.initialized_json_data:")
+    context.logger.info(context.initialized_json_data)
+    
+    send_request(context, command, sdk_name, serialized_data)
 
 @then('Test Agent "{sdk_name}" receives an "{status_code}" status for latest execute')
 def tm_receives_response(context, status_code: str, sdk_name: str):
