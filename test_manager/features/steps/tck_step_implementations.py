@@ -221,7 +221,7 @@ def serialized_uuid_received(context, expected_uuid: str):
         raise ValueError(f"Exception occurred. {ae}")
 
 
-@then('receives validation result as "{expected_result}"')
+@then('receives validation result as "{expected_result: NullableString}"')
 def receive_validation_result(context, expected_result):
     if expected_result == "none":
         return
@@ -335,7 +335,9 @@ def verify_uuid_received_properties(context):
             if len(expected_value) > 0:
                 if field in int_type_fields:
                     expected_value: int = int(expected_value)
-                assert_that(deserialized_uuid[field], equal_to(expected_value))
+                
+                actual_value: int = int(deserialized_uuid[field])
+                assert_that(actual_value, equal_to(expected_value))
     except AssertionError as ae:
         raise AssertionError(f"Assertion error. {ae}")
 

@@ -35,6 +35,7 @@ import java.util.logging.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 
 public class ProtoConverter {
@@ -69,8 +70,16 @@ public class ProtoConverter {
                     protoObj.setField(fieldDescriptor, integer);
                     break;
                 case LONG:
-                    long longVal = Caster.toLong(value);
-                    protoObj.setField(fieldDescriptor, longVal);     
+                    FieldDescriptor.Type type = fieldDescriptor.getType();
+                    if (type == FieldDescriptor.Type.FIXED64 || type == FieldDescriptor.Type.UINT64){
+                        //have to use BigInteger to keep long value as unsigned
+                        BigInteger longVal = Caster.toBigInteger(value);
+                        protoObj.setField(fieldDescriptor, longVal.longValue() ); 
+                    }else{
+                        long longVal = Caster.toLong(value);
+                        protoObj.setField(fieldDescriptor, longVal);
+                    }
+  
                     break;
                 case FLOAT:
                     float f = Caster.toFloat(value); 
@@ -170,6 +179,19 @@ public class ProtoConverter {
     		if (value instanceof ByteString) {
     			value = ((ByteString) value).toStringUtf8();
     		}
+
+//             FieldDescriptor.Type type = field.getType();
+//             if ( value instanceof Long){
+//             	if ((type == FieldDescriptor.Type.FIXED64 || type == FieldDescriptor.Type.UINT64) ) {  //if unsigned long type...
+//             		value = Double.valueOf(Long.toUnsignedString( (long) value));
+//             	}
+// //            	BigInteger bi = new BigInteger(Long.toUnsignedString( (long) value));
+// //            	result.put(fieldName, Double.valueOf(Long.toUnsignedString( (long) value)));
+// //            	UUID uuid1 = UUID.newBuilder().setLsb(bi.longValue()).build();
+// //            	System.out.println(uuid1);
+// //            	System.out.println(bi.longValue());
+// //            	System.out.println("result: " + result);
+//             }
 			
 
     		if (value instanceof Message) {

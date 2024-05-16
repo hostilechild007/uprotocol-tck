@@ -24,6 +24,8 @@
 
 package org.eclipse.uprotocol;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 
 public final class Caster {
 	
@@ -73,6 +75,26 @@ public final class Caster {
             }
     	}
     	return longVal;
+	}
+
+	public static BigInteger toBigInteger(Object value) {
+		BigInteger bigInt = BigInteger.valueOf(0);
+    	if (value instanceof Double) {
+    		bigInt = BigDecimal.valueOf((double) value).toBigInteger();
+    	}
+    	else if (value instanceof Float) {
+    		bigInt = BigDecimal.valueOf((float) value).toBigInteger();
+    	}
+    	else if (value instanceof Integer) {
+    		bigInt = BigInteger.valueOf((int)value);
+    	}
+    	else if (value instanceof Long) {
+    		bigInt = BigInteger.valueOf((long) value);
+    	}
+    	else {
+    		bigInt = BigInteger.valueOf((long) value);
+    	}
+    	return bigInt;
 	}
 	
 	public static float toFloat(Object value) {

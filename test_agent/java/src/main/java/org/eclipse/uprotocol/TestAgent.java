@@ -117,6 +117,9 @@ public class TestAgent {
     private static void sendToTestManager(Message proto, String action, String received_test_id) {
         JSONObject responseDict = new JSONObject();
         responseDict.put("data", ProtoConverter.convertMessageToMap(proto));
+        System.out.println("responseDict:");
+        System.out.println(responseDict);
+
         if (received_test_id != null) {
             responseDict.put("test_id", received_test_id);
         }
@@ -398,35 +401,14 @@ public class TestAgent {
 
 
     public static Object handleValidateUuidCommand(Map<String, Object> jsonData) {
-        String uuidType = ((Map<String, Object>) jsonData.get("data")).getOrDefault("uuid_type", "default").toString();
-        String validatorType = ((Map<String, Object>) jsonData.get("data")).getOrDefault("validator_type", "default").toString();
+        Map<String, Object> data = (Map<String, Object>) jsonData.get("data");
+        String valType = (String) data.get("validation_type");
+        Map<String, Object> uidValue = (Map<String, Object>) data.get("uuid");
 
-        UUID uuid;
-        switch (uuidType) {
-            case "uprotocol":
-                uuid = UuidFactory.Factories.UPROTOCOL.factory().create();
-                break;
-            case "invalid":
-                uuid = UUID.newBuilder().setMsb(0L).setLsb(0L).build();
-                break;
-            case "uprotocol_time":
-                Instant epochTime = Instant.ofEpochMilli(0);
-                uuid = UuidFactory.Factories.UPROTOCOL.factory().create(epochTime);
-                break;
-            case "uuidv6":
-                uuid = UuidFactory.Factories.UUIDV6.factory().create();
-                break;
-            case "uuidv4":
-                java.util.UUID uuid_java = java.util.UUID.randomUUID();
-                uuid = UUID.newBuilder().setMsb(uuid_java.getMostSignificantBits())
-                        .setLsb(uuid_java.getLeastSignificantBits()).build();
-                break;
-            default:
-                uuid = null;
-        }
+        UUID uuid = (UUID) ProtoConverter.dictToProto(uidValue, UUID.newBuilder());
 
         UStatus status;
-        switch (validatorType) {
+        switch (valType) {
             case "get_validator":
                 status = UuidValidator.getValidator(uuid).validate(uuid);
                 break;
@@ -436,7 +418,7 @@ public class TestAgent {
             case "uuidv6":
                 status = UuidValidator.Validators.UUIDV6.validator().validate(uuid);
                 break;
-            case "get_validator_is_uuidv6":
+            case "is_uuidv6":
                 status = UuidUtils.isUuidv6(uuid) ? UStatus.newBuilder().setCode(UCode.OK).setMessage("").build()
                         : UStatus.newBuilder().setCode(UCode.FAILED_PRECONDITION).setMessage("").build();
                 break;

@@ -23,7 +23,6 @@ import git
 from threading import Thread
 from typing import Any, Dict, List, Union
 import time
-from datetime import datetime, timezone
 
 from google.protobuf import any_pb2
 from google.protobuf.message import Message
@@ -269,7 +268,6 @@ def handle_long_serialize_uuid(json_msg: Dict[str, Any]):
 
 def handle_uri_validate_command(json_msg: Dict[str, Any]):
     val_type: str = json_msg["data"]["validation_type"]
-    # uri: UUri = LongUriSerializer().deserialize(json_msg["data"].get("serialized_uri"))
     uuri_data: Dict[str, Any] = json_msg["data"]["uuri"]
     
     uuri: UUri = dict_to_proto(uuri_data, UUri())
@@ -327,27 +325,18 @@ def handle_micro_deserialize_uri_command(json_msg: Dict[str, Any]):
     )
 
 def handle_uuid_validate_command(json_msg):
-    uuid_type = json_msg["data"].get("uuid_type")
-    validator_type = json_msg["data"]["validator_type"]
-
-    uuid = {
-        "uprotocol": Factories.UPROTOCOL.create(),
-        "invalid": UUID(msb=0, lsb=0),
-        "uprotocol_time": Factories.UPROTOCOL.create(
-            datetime.utcfromtimestamp(0).replace(tzinfo=timezone.utc)
-        ),
-        "uuidv6": Factories.UUIDV6.create(),
-        "uuidv4": LongUuidSerializer().deserialize(
-            "195f9bd1-526d-4c28-91b1-ff34c8e3632d"
-        ),
-    }.get(uuid_type)
+    uuid_data: Dict[str, Any] = json_msg["data"]["uuid"]
+    validation_type: str = json_msg["data"]["validation_type"]
+    
+    uuid: UUID = dict_to_proto(uuid_data, UUID())
+    logger.info(f"UUID: {uuid}")
 
     status = {
         "get_validator": UuidValidator.get_validator(uuid).validate(uuid),
         "uprotocol": Validators.UPROTOCOL.validator().validate(uuid),
         "uuidv6": Validators.UUIDV6.validator().validate(uuid),
-        "get_validator_is_uuidv6": UUIDUtils.is_uuidv6(uuid),
-    }.get(validator_type)
+        "is_uuidv6": UUIDUtils.is_uuidv6(uuid),
+    }.get(validation_type)
 
     if isinstance(status, bool):
         result = str(status)
